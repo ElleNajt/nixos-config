@@ -5,29 +5,16 @@
 { config, lib, pkgs, ... }:
 
 {
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-    ];
+  imports = [
+    ./hardware-configuration.nix
+    ./system/vms.nix
+    ./system/computers/etude.nix
+  ];
 
-  # Use the systemd-boot EFI boot loader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-
-
-  networking.hostName = "nixos"; 
   # Pick only one of the below networking options.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
   # networking.networkmanager.enable = true;  # Easiest to use and most distros use this by default.
 
-  # Set your time zone.
-  time.timeZone = "America/New_York";
-
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
-
-  # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
   # console = {
   #   font = "Lat2-Terminus16";
@@ -37,9 +24,6 @@
 
   # Enable the X11 windowing system.
   # services.xserver.enable = true;
-
-
-  
 
   # Configure keymap in X11
   # services.xserver.xkb.layout = "us";
@@ -62,22 +46,18 @@
   # Define a user account. Don't forget to set a password with ‘passwd’.
 
   users.users.elle = {
-	  isNormalUser = true;
-	  extraGroups = [ "wheel" ]; 
-	  initialPassword = "a";
-	  packages = with pkgs; [ ];
-	  shell = pkgs.zsh;
+    isNormalUser = true;
+    extraGroups = [ "wheel" ];
+    initialPassword = "a";
+    packages = with pkgs; [ ];
+    shell = pkgs.zsh;
   };
 
-programs.zsh.enable = true;
+  programs.zsh.enable = true;
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
-   environment.systemPackages = with pkgs; [
-     vim 
-git
-firefox
-   ];
+  environment.systemPackages = with pkgs; [ vim git firefox ];
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -122,20 +102,15 @@ firefox
   # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
   system.stateVersion = "24.05"; # Did you read the comment?
 
-programs.dconf.enable = true;
-services.xserver = {
+  programs.dconf.enable = true;
+  services.xserver = {
 
-enable = true;
-windowManager.i3.enable = true;
+    enable = true;
+    windowManager.i3.enable = true;
 
-};
+  };
 
-hardware.opengl.enable = true;
-services.displayManager.defaultSession = "none+i3";
-
-environment.sessionVariables = {
-"LIBGL_ALWAYS_SOFTWARE"="true";
-};
+  hardware.opengl.enable = true;
+  services.displayManager.defaultSession = "none+i3";
 
 }
-
