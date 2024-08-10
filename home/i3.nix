@@ -1,11 +1,21 @@
 { config, lib, pkgs, ... }:
 let
 
+  py3status = pkgs.python3Packages.py3status.overridePythonAttrs (old: rec {
+    name = "${pname}-${old.version}";
+    pname = "py3status-glittershark";
+    src = pkgs.fetchFromGitHub {
+      owner = "glittershark";
+      repo = "py3status";
+      rev = "f243be1458cdabd5a7524adb76b5db99006c810c";
+      sha256 = "0ffmv91562yk0wigriw4d5nfg2b32wqx8x78qvdqkawzvgbwrwvl";
+    };
+  });
+
   solarized = import ./common/solarized.nix;
 
   mod = "Mod4+Mod1";
 
-  # TODO pull this out into lib
   emacsclient = eval:
     pkgs.writeShellScript "emacsclient-eval" ''
       msg=$(emacsclient --eval '${eval}' 2>&1)
@@ -17,29 +27,12 @@ let
         output_format = i3bar
         colors = true
         color_good = "#859900"
-
         interval = 1
     }
 
     order += "external_script current_task"
-    order += "external_script inbox"
-    order += "volume_status"
-    order += "wireless ${config.system.machine.wirelessInterface}"
-    # order += "ethernet enp3s0f0"
     order += "cpu_usage"
-    ${lib.optionalString (!isNull config.system.machine.battery) ''
-      order += "battery ${toString config.system.machine.battery}"
-    ''}
-    # order += "volume master"
     order += "time"
-    order += "tztime utc"
-
-
-    battery ${toString config.system.machine.battery} {
-        format = "%status %percentage (%remaining)"
-        path = "/sys/class/power_supply/BAT%d/uevent"
-        low_threshold = 10
-    }
 
     cpu_usage {
         format = "CPU: %usage"
@@ -50,22 +43,14 @@ let
     }
 
     time {
-        format = "    %a %h %d ⌚   %I:%M     "
-    }
-
-
-    external_script inbox {
-        script_path = '${emacsclient "(aspen/num-inbox-items-message)"}'
-        format = 'Inbox: {output}'
-        cache_timeout = 120
-        color = "#93a1a1"
+        format = " %a %h %d  %I:%M "
     }
 
     external_script current_task {
         script_path = '${
-          emacsclient "(aspen/org-current-clocked-in-task-message)"
+          emacsclient "(elle/org-current-clocked-in-task-message)"
         }'
-        # format = '{output}'
+        format = 'Task: {output}'
         cache_timeout = 60
         color = "#93a1a1"
     }
@@ -75,10 +60,6 @@ let
         format = "    %H·%M    "
     }
 
-  '';
-
-  i3status-command = pkgs.writeShellScript "i3status.sh" ''
-    py3status -c /tmp/i3status.conf
   '';
 
   inherit (builtins) map;
@@ -96,7 +77,7 @@ in {
 
       i3FontSize = mkOption {
         description = "Font size to use in i3 window decorations etc.";
-        default = 16;
+        default = 10;
         type = types.int;
       };
 
@@ -122,7 +103,7 @@ in {
       rofi-pass
       i3lock
       i3status
-      dconf # for gtk
+      dconf
 
       # Screenshots
       maim
@@ -178,12 +159,6 @@ in {
 
               "${mod}+r" = "mode resize";
 
-              # Marks
-              "${mod}+Shift+m" =
-                ''exec i3-input -F "mark %s" -l 1 -P 'Mark: ' '';
-              "${mod}+m" =
-                ''exec i3-input -F '[con_mark="%s"] focus' -l 1 -P 'Go to: ' '';
-
               # Screenshots
               "${mod}+q" =
                 ''exec "maim -s | xclip -selection clipboard -t image/png"'';
@@ -213,24 +188,12 @@ in {
               # Edit current buffer
               "${mod}+v" = "exec edit-input";
 
-              # Media
-              "XF86AudioRaiseVolume" = "exec pulseaudio-ctl up";
-              "XF86AudioLowerVolume" = "exec pulseaudio-ctl down";
-              "XF86AudioMute" = "exec pulseaudio-ctl mute";
-
-              # Lock
-              Pause = "exec lock";
-
-              # Brightness
-              "XF86MonBrightnessDown" =
-                "exec ${pkgs.brightnessctl}/bin/brightnessctl -q s 5%-";
-              "XF86MonBrightnessUp" =
-                "exec ${pkgs.brightnessctl}/bin/brightnessctl -q s 5%+";
-
               # Scratch buffer
               "${mod}+minus" = "scratchpad show";
               "${mod}+Shift+minus" = "move scratchpad";
               "${mod}+space" = "focus mode_toggle";
+
+              # this is how you make something not a scratch pad
               "${mod}+Shift+space" = "floating toggle";
 
               # Screen Layout
@@ -275,7 +238,7 @@ in {
         };
 
         bars = [{
-          statusCommand = "${i3status-command}";
+          statusCommand = "${py3status}/bin/py3status -c ${i3status-conf}";
           inherit fonts;
           position = "top";
           colors = with solarized; rec {
@@ -349,5 +312,6 @@ in {
       iconTheme.name = "Adwaita";
       theme.name = "Adwaita";
     };
+
   };
 }
