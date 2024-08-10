@@ -4,29 +4,39 @@
 { config, lib, pkgs, modulesPath, ... }:
 
 {
-  imports =
-    [ (modulesPath + "/profiles/qemu-guest.nix")
-    ];
+  imports = [ (modulesPath + "/profiles/qemu-guest.nix") ];
 
   boot.initrd.availableKernelModules = [ "xhci_pci" "sr_mod" ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ ];
   boot.extraModulePackages = [ ];
 
-  fileSystems."/" =
-    { device = "/dev/disk/by-uuid/f5291c81-d374-4512-8f63-0f856b3e558c";
-      fsType = "ext4";
-    };
+  fileSystems."/" = {
+    device = "/dev/disk/by-uuid/f5291c81-d374-4512-8f63-0f856b3e558c";
+    fsType = "ext4";
+  };
 
-  fileSystems."/boot" =
-    { device = "/dev/disk/by-uuid/3E2B-9E60";
-      fsType = "vfat";
-      options = [ "fmask=0022" "dmask=0022" ];
-    };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-uuid/3E2B-9E60";
+    fsType = "vfat";
+    options = [ "fmask=0022" "dmask=0022" ];
+  };
+
+  environment.etc."davfs2/secrets" = {
+    text = ''
+      http://127.0.0.1:9843 username password
+    '';
+    mode = "0600";
+  };
+
+  fileSystems."/mnt/shared" = {
+    device = "http://127.0.0.1:9843";
+    fsType = "davfs";
+    options = [ "rw" "uid=elle" "gid=users" "noexec" "netsec" ];
+  };
 
   swapDevices =
-    [ { device = "/dev/disk/by-uuid/7e497b57-c73c-46a4-8e00-e1aacfd9494c"; }
-    ];
+    [{ device = "/dev/disk/by-uuid/7e497b57-c73c-46a4-8e00-e1aacfd9494c"; }];
 
   # Enables DHCP on each ethernet and wireless interface. In case of scripted networking
   # (the default) this is the recommended approach. When using systemd-networkd it's
