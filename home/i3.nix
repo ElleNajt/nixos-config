@@ -23,8 +23,6 @@ let
 
     order += "external_script current_task"
     order += "external_script inbox"
-    order += "spotify"
-    order += "weather_owm"
     order += "volume_status"
     order += "wireless ${config.system.machine.wirelessInterface}"
     # order += "ethernet enp3s0f0"
@@ -36,19 +34,6 @@ let
     order += "time"
     order += "tztime utc"
 
-    mpd {
-        format = "%artist - %album - %title"
-    }
-
-    wireless ${config.system.machine.wirelessInterface} {
-        format_up = "W: (%quality - %essid - %bitrate) %ip"
-        format_down = "W: -"
-    }
-
-    ethernet enp3s0f0 {
-        format_up = "E: %ip"
-        format_down = "E: -"
-    }
 
     battery ${toString config.system.machine.battery} {
         format = "%status %percentage (%remaining)"
@@ -68,13 +53,6 @@ let
         format = "    %a %h %d ⌚   %I:%M     "
     }
 
-    spotify {
-        color_playing = "#fdf6e3"
-        color_paused = "#93a1a1"
-        format_stopped = ""
-        format_down = ""
-        format = "{title} - {artist} ({album})"
-    }
 
     external_script inbox {
         script_path = '${emacsclient "(aspen/num-inbox-items-message)"}'
@@ -97,24 +75,9 @@ let
         format = "    %H·%M    "
     }
 
-    volume_status {
-        format = "☊ {percentage}"
-        format_muted = "☊ X"
-        # device = "default"
-        # mixer_idx = 0
-    }
-
-    weather_owm {
-        api_key = '@owmApiKey@'
-        unit_temperature = 'c'
-        format = '{icon} {temperature}[ {rain}]'
-    }
   '';
 
   i3status-command = pkgs.writeShellScript "i3status.sh" ''
-    sed -s "s/@owmApiKey@/$(pass owm-api-key)/" \
-      < ${i3status-conf} \
-      > /tmp/i3status.conf
     py3status -c /tmp/i3status.conf
   '';
 
@@ -223,8 +186,6 @@ in {
 
               # Screenshots
               "${mod}+q" =
-                ''exec "maim | xclip -selection clipboard -t image/png"'';
-              "${mod}+Shift+q" =
                 ''exec "maim -s | xclip -selection clipboard -t image/png"'';
               "${mod}+Ctrl+q" = "exec ${
                   pkgs.writeShellScript "peek.sh" ''
@@ -253,9 +214,6 @@ in {
               "${mod}+v" = "exec edit-input";
 
               # Media
-              "XF86AudioPlay" = "exec playerctl -p spotify play-pause";
-              "XF86AudioNext" = "exec playerctl -p spotify next";
-              "XF86AudioPrev" = "exec playerctl -p spotify previous";
               "XF86AudioRaiseVolume" = "exec pulseaudio-ctl up";
               "XF86AudioLowerVolume" = "exec pulseaudio-ctl down";
               "XF86AudioMute" = "exec pulseaudio-ctl mute";
@@ -268,10 +226,6 @@ in {
                 "exec ${pkgs.brightnessctl}/bin/brightnessctl -q s 5%-";
               "XF86MonBrightnessUp" =
                 "exec ${pkgs.brightnessctl}/bin/brightnessctl -q s 5%+";
-
-              # Sleep/hibernate
-              # "${mod}+Escape" = "exec systemctl suspend";
-              # "${mod}+Shift+Escape" = "exec systemctl hibernate";
 
               # Scratch buffer
               "${mod}+minus" = "scratchpad show";
