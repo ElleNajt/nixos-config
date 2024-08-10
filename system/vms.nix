@@ -12,5 +12,25 @@ with lib; {
     services.spice-vdagentd.enable = true;
     services.qemuGuest.enable = true;
     environment.sessionVariables = { "LIBGL_ALWAYS_SOFTWARE" = "true"; };
+
+    # also starting them as services explicitly, since the option wasn't working
+    # systemd.services.spice-vdagent = {
+    #   description = "Spice guest agent";
+    #   wantedBy = [ "multi-user.target" ];
+    #   after = [ "display-manager.service" ];
+    #   serviceConfig = {
+    #     ExecStart = "${pkgs.spice-vdagent}/bin/spice-vdagent";
+    #     Restart = "always";
+    #   };
+    # };
+
+    # systemd.services.elle-spice-vdagentd = {
+    #   description = "Spice guest agent daemon";
+    #   after = [ "spice-vdagentd.socket" ];
+    #   serviceConfig = {
+    #     ExecStart = "${pkgs.spice-vdagent}/bin/spice-vdagentd";
+    #     Restart = "always";
+    #   };
+    # };
   };
 }
