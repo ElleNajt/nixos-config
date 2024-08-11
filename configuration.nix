@@ -57,7 +57,7 @@
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
-  environment.systemPackages = with pkgs; [ vim git firefox ];
+  environment.systemPackages = with pkgs; [ vim firefox ];
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -113,4 +113,5 @@
   hardware.opengl.enable = true;
   services.displayManager.defaultSession = "none+i3";
 
+  services.pcscd.enable = true;
 }
