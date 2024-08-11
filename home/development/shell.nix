@@ -6,4 +6,8 @@
     shfmt
     shellcheck
   ];
+
+  programs.thefuck.enable = true;
+  programs.thefuck.enableBashIntegration = true;
+  programs.thefuck.enableZshIntegration = true;
 }
