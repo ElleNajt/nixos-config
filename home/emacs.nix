@@ -17,6 +17,20 @@
     })
 
     (makeDesktopItem {
+      name = "Doom Sync";
+      desktopName = "Doom Sync";
+      icon = "emacs";
+      exec = "kitty ${
+          pkgs.writeShellScript "doom-sync" ''
+            if ! /home/elle/.emacs.d/bin/doom sync; then
+              echo 'Doom sync failed'
+              exec bash
+            fi
+          ''
+        }";
+    })
+
+    (makeDesktopItem {
       name = "Doom Emacs";
       desktopName = "Doom Emacs";
       icon = "emacs";
