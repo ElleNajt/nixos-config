@@ -77,9 +77,7 @@
     #
     #  /etc/profiles/per-user/elle/etc/profile.d/hm-session-vars.sh
     #
-    home.sessionVariables = {
-      # EDITOR = "emacs";
-    };
+    home.sessionVariables = { EDITOR = "emacsclient"; };
 
     programs.zsh = {
 
