@@ -9,6 +9,24 @@
 
   home.packages = with pkgs; [
 
+    emacs-git
+
+    nerdfonts
+    ripgrep
+    fd
+    coreutils
+    direnv
+    clang
+    ispell
+    pandoc
+    nodejs_22
+    libvterm
+    cargo
+    cmake
+    gnumake
+    libtool
+    imagemagick
+
     (pkgs.texlive.combine {
       inherit (pkgs.texlive)
         capt-of collection-fontsrecommended dvipng fancyvrb float fncychap
@@ -43,24 +61,6 @@
       icon = "emacs";
       exec = "${emacs-git}/bin/emacs --debug-init";
     })
-
-    emacs-git
-    emacsPackages.treesit-grammars.with-all-grammars
-    nerdfonts
-    ripgrep
-    fd
-    coreutils
-    direnv
-    clang
-    ispell
-    pandoc
-    nodejs_22
-    libvterm
-    cargo
-    cmake
-    gnumake
-    libtool
-    imagemagick
 
     # Stolen from aspen
     (writeShellApplication {
