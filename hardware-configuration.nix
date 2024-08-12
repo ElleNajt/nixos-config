@@ -29,12 +29,6 @@
     mode = "0600";
   };
 
-  fileSystems."/mnt/shared" = {
-    device = "http://127.0.0.1:9843";
-    fsType = "davfs";
-    options = [ "rw" "uid=elle" "gid=users" "noexec" "netsec" ];
-  };
-
   swapDevices =
     [{ device = "/dev/disk/by-uuid/7e497b57-c73c-46a4-8e00-e1aacfd9494c"; }];
 

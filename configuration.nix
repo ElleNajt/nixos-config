@@ -112,6 +112,5 @@
 
   hardware.opengl.enable = true;
   services.displayManager.defaultSession = "none+i3";
-
   services.pcscd.enable = true;
 }
