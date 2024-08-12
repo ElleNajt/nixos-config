@@ -26,10 +26,14 @@ let
   '';
 in {
 
+  # services.udev.extraRules = ''
+  #   ACTION=="change", SUBSYSTEM=="drm", RUN+="${auto-resize-script}"
+  # '';
+
   services.udev.extraRules = ''
-    ACTION=="change", SUBSYSTEM=="drm", RUN+="${auto-resize-script}"
+    ACTION=="change", SUBSYSTEM=="drm", RUN+="${pkgs.xlayoutdisplay}"
   '';
 
-  services.udev.path = with pkgs; [ bash xorg.xrandr ];
+  services.udev.path = with pkgs; [ bash xorg.xrandr xlayoutdisplay ];
 
 }
