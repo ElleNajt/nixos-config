@@ -183,7 +183,8 @@ in {
                 }";
 
               # Passwords
-              "${mod}+p" = "exec rofi-pass -font '${decorationFont}'";
+              "${mod}+p" =
+                "exec rofi-pass --root '/home/elle/.local/share/password-store/' -font '${decorationFont}'";
 
               # Edit current buffer
               "${mod}+v" = "exec edit-input";
