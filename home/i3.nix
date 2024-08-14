@@ -14,6 +14,44 @@ let
 
   solarized = import ./common/solarized.nix;
 
+  colors = {
+    focused = {
+      border = "#4c7899";
+      background = "#285577";
+      text = "#ffffff";
+      indicator = "#2e9ef4";
+      childBorder = "#285577";
+    };
+    focusedInactive = {
+      border = "#333333";
+      background = "#5f676a";
+      text = "#ffffff";
+      indicator = "#484e50";
+      childBorder = "#5f676a";
+    };
+    unfocused = {
+      border = "#333333";
+      background = "#222222";
+      text = "#888888";
+      indicator = "#292d2e";
+      childBorder = "#222222";
+    };
+    urgent = {
+      border = "#2f343a";
+      background = "#900000";
+      text = "#ffffff";
+      indicator = "#900000";
+      childBorder = "#900000";
+    };
+    placeholder = {
+      border = "#000000";
+      background = "#0c0c0c";
+      text = "#ffffff";
+      indicator = "#000000";
+      childBorder = "#0c0c0c";
+    };
+    background = "#ffffff";
+  };
   mod = "Mod4+Mod1";
 
   emacsclient = eval:
@@ -77,7 +115,7 @@ in {
 
       i3FontSize = mkOption {
         description = "Font size to use in i3 window decorations etc.";
-        default = 10;
+        default = 16;
         type = types.int;
       };
 
@@ -131,7 +169,7 @@ in {
               "${mod}+${toString n}" = "workspace ${toString n}";
               "${mod}+Shift+${toString n}" =
                 "move container to workspace ${toString n}";
-            }) (range 0 9)) ++ [(rec {
+            }) (range 1 9)) ++ [(rec {
               "${mod}+h" = "focus left";
               "${mod}+j" = "focus down";
               "${mod}+k" = "focus up";
@@ -210,24 +248,7 @@ in {
               "Control+Shift+period" = "exec ${pkgs.dunst}/bin/dunstctl action";
             })]);
 
-        inherit fonts;
-
-        colors = with solarized; rec {
-          focused = {
-            border = base01;
-            background = base01;
-            text = base3;
-            indicator = red;
-            childBorder = base02;
-          };
-          focusedInactive = focused // {
-            border = base03;
-            background = base03;
-            # text = base1;
-          };
-          unfocused = focusedInactive;
-          background = base03;
-        };
+        inherit fonts colors;
 
         modes.resize = {
           l = "resize shrink width 5 px or 5 ppt";
@@ -241,20 +262,37 @@ in {
         bars = [{
           statusCommand = "${py3status}/bin/py3status -c ${i3status-conf}";
           inherit fonts;
-          position = "top";
-          colors = with solarized; rec {
-            background = base03;
-            statusline = base3;
-            separator = base1;
-            activeWorkspace = {
-              border = base03;
-              background = base1;
-              text = base3;
+          colors = {
+            background = "#000000";
+            statusline = "#ffffff";
+            separator = "#666666";
+            focusedWorkspace = {
+              border = "#4c7899";
+              background = "#285577";
+              text = "#ffffff";
             };
-            focusedWorkspace = activeWorkspace;
-            inactiveWorkspace = activeWorkspace // { background = base01; };
-            urgentWorkspace = activeWorkspace // { background = red; };
+            activeWorkspace = {
+              border = "#333333";
+              background = "#5f676a";
+              text = "#ffffff";
+            };
+            inactiveWorkspace = {
+              border = "#333333";
+              background = "#222222";
+              text = "#888888";
+            };
+            urgentWorkspace = {
+              border = "#2f343a";
+              background = "#900000";
+              text = "#ffffff";
+            };
+            bindingMode = {
+              border = "#2f343a";
+              background = "#900000";
+              text = "#ffffff";
+            };
           };
+          position = "top";
         }];
 
         window.titlebar = true;
