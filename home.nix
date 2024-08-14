@@ -7,6 +7,7 @@
     ./home/emacs.nix
     ./home/development.nix
     ./home/vms.nix
+    ./home/display.nix
     ./home/computers/etude.nix
   ];
 
