@@ -36,6 +36,9 @@
       file
       psmisc
 
+      niv
+
+      xorg.libxcvt
       xlayoutdisplay
       arandr
 
@@ -86,12 +89,16 @@
       shellAliases = {
         "nrs" = "sudo nixos-rebuild switch";
         "hms" = "home-manager switch";
+        "gc" = "git clone";
+        "fixd" = " xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144";
       };
 
     };
+
     # Let Home Manager install and manage itself.
     programs.home-manager.enable = true;
     programs.password-store.enable = true;
+
     programs.gpg.enable = true;
     services.gpg-agent = {
       enable = true;

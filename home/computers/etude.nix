@@ -24,6 +24,8 @@ let
     '';
 in {
 
+  imports = [ ../platforms/linux.nix ];
+
   elle.is_vm = true;
 
   systemd.user.services.create_xrandr_modes = {
