@@ -1,10 +1,17 @@
 { config, lib, pkgs, ... }:
+# TODO  - shouldn't something like
+# { config, lib, pkgs, sources, ... }:
+# With sources defined in home.nix work?
 
-{
+let sources = import ./../nix/sources.nix;
+
+in {
 
   nixpkgs.overlays = [
-    (import (builtins.fetchTarball
-      "https://github.com/nix-community/emacs-overlay/archive/master.tar.gz"))
+    (import (builtins.fetchTarball {
+      url = sources.emacs-overlay.url;
+      sha256 = sources.emacs-overlay.sha256;
+    }))
   ];
 
   home.packages = with pkgs; [
@@ -35,8 +42,8 @@
     })
 
     (makeDesktopItem {
-      name = "Doom Sync";
-      desktopName = "Doom Sync";
+      name = "Sync Doom";
+      desktopName = "Sync Doom";
       icon = "emacs";
       exec = "kitty ${
           pkgs.writeShellScript "doom-sync" ''
