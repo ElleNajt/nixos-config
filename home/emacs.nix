@@ -28,7 +28,7 @@ in {
     pandoc
     nodejs_22
     libvterm
-    cargo
+    # cargo
     cmake
     gnumake
     libtool
@@ -39,6 +39,20 @@ in {
         capt-of collection-fontsrecommended dvipng fancyvrb float fncychap
         framed mathpartir needspace parskip scheme-basic semantic tabulary
         titlesec ulem upquote varwidth wrapfig bussproofs bussproofs-extra;
+    })
+
+    (makeDesktopItem {
+      name = "Upgrade Doom";
+      desktopName = "Upgrade Doom";
+      icon = "emacs";
+      exec = "kitty ${
+          pkgs.writeShellScript "doom-sync" ''
+            if ! /home/elle/.emacs.d/bin/doom upgrade; then
+              echo 'Doom sync failed'
+              exec bash
+            fi
+          ''
+        }";
     })
 
     (makeDesktopItem {
