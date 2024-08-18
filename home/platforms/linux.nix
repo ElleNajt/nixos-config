@@ -11,6 +11,7 @@
     apvlv
     vlc
     gimp
+    iputils
 
     # System utilities
     powertop

@@ -35,8 +35,11 @@
       lsof
       file
       psmisc
+      wget
 
+      # nix stuff
       niv
+      nix-search-cli
 
       xorg.libxcvt
       xlayoutdisplay
