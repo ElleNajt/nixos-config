@@ -18,7 +18,7 @@
     usbutils
     pciutils
     gdmap
-    lsof
+    # lsof
     tree
     nmap
     iftop

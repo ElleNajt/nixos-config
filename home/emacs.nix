@@ -1,7 +1,4 @@
 { config, lib, pkgs, ... }:
-# TODO  - shouldn't something like
-# { config, lib, pkgs, sources, ... }:
-# With sources defined in home.nix work?
 
 let sources = import ./../nix/sources.nix;
 
@@ -16,7 +13,7 @@ in {
 
   home.packages = with pkgs; [
 
-    emacs-git
+    emacsGcc
 
     nerdfonts
     ripgrep
@@ -34,12 +31,12 @@ in {
     libtool
     imagemagick
 
-    (pkgs.texlive.combine {
-      inherit (pkgs.texlive)
-        capt-of collection-fontsrecommended dvipng fancyvrb float fncychap
-        framed mathpartir needspace parskip scheme-basic semantic tabulary
-        titlesec ulem upquote varwidth wrapfig bussproofs bussproofs-extra;
-    })
+    # (pkgs.texlive.combine {
+    #   inherit (pkgs.texlive)
+    #     capt-of collection-fontsrecommended dvipng fancyvrb float fncychap
+    #     framed mathpartir needspace parskip scheme-basic semantic tabulary
+    #     titlesec ulem upquote varwidth wrapfig bussproofs bussproofs-extra;
+    # })
 
     (makeDesktopItem {
       name = "Upgrade Doom";

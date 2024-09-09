@@ -17,6 +17,8 @@ let
 
     if [ "$preferred_mode" = "1512x945" ]; then
         xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144
+    elif [ "$preferred_mode" = "1920x1080" ]; then
+        xrandr --output Virtual-1 --mode 3840x2160_75.00 --dpi 144
     else
         ${pkgs.xorg.xrandr}/bin/xrandr --output Virtual-1 --auto
     fi

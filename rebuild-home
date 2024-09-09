@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+home_activation="$(nix build --no-link --print-out-paths -f . home)"
+"$home_activation/activate"

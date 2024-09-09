@@ -4,9 +4,10 @@
 
 { config, lib, pkgs, ... }:
 
-let sources = import ./nix/sources.nix;
-in {
+{
 
+  # nixpkgs.pkgs =
+  #   import (import ./nix/sources.nix).nixpkgs config.nixpkgs.config;
   imports = [
     ./hardware-configuration.nix
     ./system/vms.nix
@@ -32,7 +33,7 @@ in {
 
   programs.zsh.enable = true;
 
-  environment.systemPackages = with pkgs; [ vim firefox ];
+  environment.systemPackages = with pkgs; [ vim firefox nixos-option ];
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;
@@ -46,6 +47,10 @@ in {
 
     enable = true;
     windowManager.i3.enable = true;
+    # sessionCommands = ''
+    #   Xft.dpi: 120
+    #     EOF
+    # '';
 
     # displayManager.sessionCommands = ''
     #   ${pkgs.xorg.xrdb}/bin/xrdb -merge <<EOF
@@ -54,6 +59,7 @@ in {
     # '';
 
   };
+  services.xserver.dpi = 120;
 
   hardware.opengl.enable = true;
   services.displayManager.defaultSession = "none+i3";

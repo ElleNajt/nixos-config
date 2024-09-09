@@ -30,9 +30,7 @@
 
     home.packages = with pkgs; [
       firefox
-      kitty
       alacritty
-      lsof
       file
       psmisc
       wget
@@ -84,14 +82,18 @@
     #
     #  /etc/profiles/per-user/elle/etc/profile.d/hm-session-vars.sh
     #
-    home.sessionVariables = { EDITOR = "emacsclient"; };
+
+    home.sessionVariables = {
+      EDITOR = "emacsclient";
+      PASSWORD_STORE_DIR = "/home/elle/.local/share/password-store";
+    };
 
     programs.zsh = {
 
       enable = true;
       shellAliases = {
-        "nrs" = "sudo nixos-rebuild switch";
-        "hms" = "home-manager switch";
+        "nrs" = "sudo ~/code/nixos-config/rebuild-nixos";
+        "hms" = "~/code/nixos-config/rebuild-home";
         "gc" = "git clone";
         "fixd" = " xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144";
       };

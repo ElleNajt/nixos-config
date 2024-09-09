@@ -7,6 +7,7 @@
     cargo-edit
     cargo-expand
     cargo-udeps
+    cargo-make
     cargo-bloat
     sccache
     evcxr

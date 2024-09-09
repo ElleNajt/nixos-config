@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+system="$(nix build --no-link --print-out-paths -f . system)"
+sudo nix-env -p /nix/var/nix/profiles/system --set "$system"
+sudo "$system/bin/switch-to-configuration" switch

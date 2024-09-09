@@ -12,14 +12,14 @@ let
             fi
           }
     add_mode_if_not_exists "3024x1890_75.00" "620.75 3024 3280 3608 4192 1890 1893 1899 1975 -hsync +vsync" "Virtual-1"
+    add_mode_if_not_exists "3840x2160_75.00" "620.75 3024 3280 3608 4192 1890 1893 1899 1975 -hsync +vsync" "Virtual-1"
   '';
 
   set-default-resolution-at-startup-script =
     pkgs.writeShellScript "set-default-resolution" ''
 
       ## TODO : Do this based on the plugged in monitor.
-
-          xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144
+      xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144
 
     '';
 in {

@@ -7,8 +7,10 @@
     ./development/rust.nix
     ./development/elisp.nix
     ./development/shell.nix
+    ./development/latex.nix
   ];
 
+  home.packages = with pkgs; [ mdbook ];
   programs.git = {
     enable = true;
     package = pkgs.gitFull;
