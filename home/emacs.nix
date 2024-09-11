@@ -13,7 +13,7 @@ in {
 
   home.packages = with pkgs; [
 
-    emacsGcc
+    emacs-git
 
     nerdfonts
     ripgrep

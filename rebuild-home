@@ -2,5 +2,8 @@
 
 set -euo pipefail
 
+cwd=$(pwd)
+cd /home/elle/code/nixos-config/
 home_activation="$(nix build --no-link --print-out-paths -f . home)"
 "$home_activation/activate"
+cd "$cwd"
