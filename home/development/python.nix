@@ -5,5 +5,6 @@
     texinfo
     pkgs.python313
     # pkgs.python313Packages.pip
+    pkgs.basedpyright
   ];
 }
