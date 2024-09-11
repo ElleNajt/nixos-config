@@ -68,12 +68,18 @@ let
         interval = 1
     }
 
-    order += "external_script current_task"
+    # order += "external_script current_task"
+    order += "read_file emacs_task"
     order += "cpu_usage"
     order += "time"
 
     cpu_usage {
         format = "CPU: %usage"
+    }
+
+    read_file emacs_task {
+              format = "Current Task: %content"
+              path = "/home/elle/.emacs.d/current-task"
     }
 
     load {
