@@ -39,6 +39,17 @@ in {
     # })
 
     (makeDesktopItem {
+      name = "SIGUSR2 Doom";
+      desktopName = "SIGUSR2 Doom";
+      icon = "emacs";
+      exec = "kitty ${
+          pkgs.writeShellScript "doom-pkill-sigusr2" ''
+            pkill -SIGUSR2 emacs
+          ''
+        }";
+    })
+
+    (makeDesktopItem {
       name = "Upgrade Doom";
       desktopName = "Upgrade Doom";
       icon = "emacs";
