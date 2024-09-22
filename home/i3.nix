@@ -151,6 +151,7 @@ in {
 
       # Screenshots
       maim
+      xclip
 
       # GIFs
       picom
