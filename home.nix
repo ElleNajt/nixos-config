@@ -13,6 +13,8 @@
 
   config = {
 
+    # nixpkgs.config.allowUnfree = true;
+
     home.username = "elle";
     home.homeDirectory = "/home/elle";
 
@@ -31,6 +33,7 @@
     home.packages = with pkgs; [
       firefox
       alacritty
+      # beeper
       file
       psmisc
       wget
@@ -88,6 +91,8 @@
       PASSWORD_STORE_DIR = "/home/elle/.local/share/password-store";
     };
 
+    home.sessionPath = [ "/home/elle/.emacs.d/bin" "/home/elle/.doom.d/bin" ];
+
     programs.zsh = {
 
       enable = true;
@@ -96,6 +101,7 @@
         "hms" = "~/code/nixos-config/rebuild-home";
         "gc" = "git clone";
         "fixd" = " xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144";
+
       };
 
     };
