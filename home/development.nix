@@ -10,7 +10,7 @@
     ./development/latex.nix
   ];
 
-  home.packages = with pkgs; [ mdbook ];
+  home.packages = with pkgs; [ mdbook gh libnotify ];
   programs.git = {
     enable = true;
     package = pkgs.gitFull;
