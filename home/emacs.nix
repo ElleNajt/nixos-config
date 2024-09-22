@@ -13,7 +13,8 @@ in {
 
   home.packages = with pkgs; [
 
-    emacs-git
+    # emacs-git
+    emacs
 
     nerdfonts
     ripgrep
@@ -81,14 +82,14 @@ in {
       name = "Doom Emacs";
       desktopName = "Doom Emacs";
       icon = "emacs";
-      exec = "${emacs-git}/bin/emacs";
+      exec = "${emacs}/bin/emacs";
     })
 
     (makeDesktopItem {
       name = "Doom Emacs (Debug Mode)";
       desktopName = "Doom Emacs (Debug Mode)";
       icon = "emacs";
-      exec = "${emacs-git}/bin/emacs --debug-init";
+      exec = "${emacs}/bin/emacs --debug-init";
     })
 
     # Stolen from aspen
