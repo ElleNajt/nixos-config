@@ -7,21 +7,43 @@ with lib; {
 
   config = mkIf config.elle.is_vm {
 
-    environment.systemPackages = with pkgs; [ spice-gtk ];
+    environment.systemPackages = with pkgs; [
+      spice-gtk
+      virtiofsd
 
-    services.davfs2.enable = true;
+    ];
 
     environment.sessionVariables = { "LIBGL_ALWAYS_SOFTWARE" = "true"; };
-
-    fileSystems."/mnt/shared" = {
-      device = "http://127.0.0.1:9843";
-      fsType = "davfs";
-      options =
-        [ "rw" "uid=elle" "gid=users" "noexec" "netsec" "x-systemd.automount" ];
-    };
 
     services.spice-vdagentd.enable = true;
     services.spice-webdavd.enable = true;
     services.qemuGuest.enable = true;
+
+    fileSystems."/mnt/shared" = {
+      device = "share";
+      fsType = "9p";
+      options = [
+        "trans=virtio"
+        "version=9p2000.L"
+        "rw"
+        "nofail"
+        "noatime"
+        "msize=1048576"
+        "cache=loose"
+        "access=any"
+        # "uid=${toString config.users.users.elle.uid}"
+        # "gid=${toString config.users.groups.users.gid}"
+        # "fmode=0644"
+        # "dmode=0755"
+        "x-systemd.automount"
+        "x-systemd.idle-timeout=1min"
+      ];
+    };
+
+    # Ensure we have 9P support
+    boot.kernelModules = [ "9p" "9pnet" "9pnet_virtio" ];
+    boot.initrd.availableKernelModules =
+      [ "virtio_pci" "9p" "9pnet" "9pnet_virtio" ];
+
   };
 }

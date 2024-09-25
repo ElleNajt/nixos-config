@@ -14,6 +14,7 @@
     ./system/computers/etude.nix
   ];
 
+  # nixpkgs.config.allowUnfree = true;
   i18n.defaultLocale = "en_US.UTF-8";
 
   console = {
@@ -61,7 +62,8 @@
   };
   services.xserver.dpi = 120;
 
-  hardware.opengl.enable = true;
+  # hardware.opengl.enable = true;
+  hardware.graphics.enable = true;
   services.displayManager.defaultSession = "none+i3";
   services.pcscd.enable = true;
   nix.settings.experimental-features = [ "nix-command" ];
