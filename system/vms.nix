@@ -40,7 +40,11 @@ with lib; {
       ];
     };
 
-    # Ensure we have 9P support
+    system.activationScripts.fixSharedPermissions = ''
+      chmod 755 /mnt/shared
+      chown ${config.users.users.elle.name}:${config.users.groups.users.name} /mnt/shared
+    '';
+
     boot.kernelModules = [ "9p" "9pnet" "9pnet_virtio" ];
     boot.initrd.availableKernelModules =
       [ "virtio_pci" "9p" "9pnet" "9pnet_virtio" ];
