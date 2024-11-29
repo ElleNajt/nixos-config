@@ -27,23 +27,25 @@ with lib; {
         "version=9p2000.L"
         "rw"
         "nofail"
+        "_netdev"
         "noatime"
         "msize=1048576"
         "cache=loose"
         "access=any"
-        # "uid=${toString config.users.users.elle.uid}"
-        # "gid=${toString config.users.groups.users.gid}"
-        # "fmode=0644"
-        # "dmode=0755"
+        "dfltuid=${toString config.users.users.elle.uid}"
+        "dfltgid=${toString config.users.groups.users.gid}"
+        "dfltmode=0644"
         "x-systemd.automount"
         "x-systemd.idle-timeout=1min"
       ];
     };
 
-    system.activationScripts.fixSharedPermissions = ''
-      chmod 755 /mnt/shared
-      chown ${config.users.users.elle.name}:${config.users.groups.users.name} /mnt/shared
-    '';
+    # system.activationScripts.fixSharedPermissions = ''
+    #   chmod 755 /mnt/shared
+    #   chown ${config.users.users.elle.name}:${config.users.groups.users.name} /mnt/shared
+    # '';
+    # # TODO This solution doesn't solve the problem of new files, or files that
+    # # get edited on the mac side, e.g. by syncthing.
 
     boot.kernelModules = [ "9p" "9pnet" "9pnet_virtio" ];
     boot.initrd.availableKernelModules =
