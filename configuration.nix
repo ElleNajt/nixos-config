@@ -26,7 +26,7 @@
 
   users.users.elle = {
     isNormalUser = true;
-    extraGroups = [ "wheel" ];
+    extraGroups = [ "wheel" "audio" ];
     initialPassword = "a";
     packages = with pkgs; [ ];
     shell = pkgs.zsh;
@@ -34,7 +34,13 @@
 
   programs.zsh.enable = true;
 
-  environment.systemPackages = with pkgs; [ vim firefox nixos-option ];
+  environment.systemPackages = with pkgs; [
+    vim
+    firefox
+    nixos-option
+    alsa-utils
+    pulseaudio
+  ];
 
   # Enable the OpenSSH daemon.
   # services.openssh.enable = true;

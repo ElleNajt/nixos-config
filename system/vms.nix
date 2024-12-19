@@ -10,6 +10,7 @@ with lib; {
     environment.systemPackages = with pkgs; [
       spice-gtk
       virtiofsd
+      spice-vdagent
 
     ];
 
@@ -30,11 +31,14 @@ with lib; {
         "_netdev"
         "noatime"
         "msize=1048576"
-        "cache=loose"
+        "cache=none"
         "access=any"
         "dfltuid=${toString config.users.users.elle.uid}"
         "dfltgid=${toString config.users.groups.users.gid}"
-        "dfltmode=0644"
+        "uid=${toString config.users.users.elle.uid}"
+        "gid=${toString config.users.groups.users.gid}"
+        "dfltmode=0777"
+        "mode=0777"
         "x-systemd.automount"
         "x-systemd.idle-timeout=1min"
       ];
