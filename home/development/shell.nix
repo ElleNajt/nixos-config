@@ -37,6 +37,7 @@
       "hms" = "~/code/nixos-config/rebuild-home";
       "gc" = "git clone";
       "fixd" = " xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144";
+      "ytd" = "yt-dlp -P /mnt/shared/videos";
     };
 
   };

@@ -38,6 +38,8 @@
       file
       psmisc
       wget
+      yt-dlp
+      ffmpeg
 
       # nix stuff
       niv
