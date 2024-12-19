@@ -5,6 +5,7 @@
   imports = [
     ./home/i3.nix
     ./home/emacs.nix
+    ./home/email.nix
     ./home/development.nix
     ./home/vms.nix
     ./home/display.nix

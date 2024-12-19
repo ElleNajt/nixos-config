@@ -11,26 +11,34 @@ in {
     }))
   ];
 
+  programs.emacs = {
+    enable = true;
+    extraPackages = epkgs: [ epkgs.mu4e ];
+  };
+
   home.packages = with pkgs; [
 
-    # emacs-git
-    emacs
-
+    mu
+    isync
+    offlineimap
+    w3m
     nerdfonts
     ripgrep
     fd
     coreutils
-    direnv
     clang
     ispell
     pandoc
     nodejs_22
     libvterm
-    # cargo
+    # cargo # necessary for some stuff to build, but moved to rust
     cmake
     gnumake
     libtool
     imagemagick
+
+    # writing
+    languagetool
 
     # (pkgs.texlive.combine {
     #   inherit (pkgs.texlive)
