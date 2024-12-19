@@ -94,19 +94,6 @@
 
     home.sessionPath = [ "/home/elle/.emacs.d/bin" "/home/elle/.doom.d/bin" ];
 
-    programs.zsh = {
-
-      enable = true;
-      shellAliases = {
-        "nrs" = "sudo ~/code/nixos-config/rebuild-nixos";
-        "hms" = "~/code/nixos-config/rebuild-home";
-        "gc" = "git clone";
-        "fixd" = " xrandr --output Virtual-1 --mode 3024x1890_75.00 --dpi 144";
-
-      };
-
-    };
-
     # Let Home Manager install and manage itself.
     programs.home-manager.enable = true;
     programs.password-store.enable = true;
