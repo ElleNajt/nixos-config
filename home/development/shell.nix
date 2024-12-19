@@ -23,6 +23,7 @@
 
   programs.direnv = {
     enable = true;
+    nix-direnv.enable = true;
     enableBashIntegration = true;
     enableZshIntegration = true;
   };
@@ -39,4 +40,36 @@
     };
 
   };
+
+  # taken from this
+  # https://github.com/direnv/direnv/issues/73
+  # this makes it possible for envrc to set aliases
+
+  home.file.".direnvrc".text = ''
+    # Clear existing aliases when entering a directory
+    rm -rf "$PWD/.envrc-aliases"
+
+    export_alias() {
+        local name=$1
+        shift
+
+        local alias_dir="$PWD/.envrc-aliases"
+        local alias_file="$alias_dir/$name"
+        local oldpath="$PATH"
+
+        if ! [[ ":$PATH:" == /":$alias_dir:"/ ]]; then
+            mkdir -p "$alias_dir"
+            PATH_add "$alias_dir"
+        fi
+
+        cat <<EOT >$alias_file
+    #!/usr/bin/env bash
+    set -e
+    PATH="$oldpath"
+    exec $@
+    EOT
+        chmod +x "$alias_file"
+    }
+  '';
+
 }
