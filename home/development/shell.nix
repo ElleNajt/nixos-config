@@ -6,6 +6,7 @@
     thefuck
     shfmt
     shellcheck
+    jq
   ];
 
   programs.thefuck.enable = true;
