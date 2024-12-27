@@ -73,6 +73,18 @@ in {
     })
 
     (makeDesktopItem {
+      name = "Doctor Doom";
+      desktopName = "Doctor Doom";
+      icon = "emacs";
+      exec = "kitty ${
+          pkgs.writeShellScript "doom-doctor" ''
+            /home/elle/.emacs.d/bin/doom doctor
+            exec bash
+          ''
+        }";
+    })
+
+    (makeDesktopItem {
       name = "Sync Doom";
       desktopName = "Sync Doom";
       icon = "emacs";
