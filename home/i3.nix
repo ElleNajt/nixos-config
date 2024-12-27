@@ -237,10 +237,10 @@ in {
               # Scratch buffer
               "${mod}+minus" = "scratchpad show";
               "${mod}+Shift+minus" = "move scratchpad";
-              "${mod}+space" = "focus mode_toggle";
+              # "${mod}+space" = "focus mode_toggle";
 
               # this is how you make something not a scratch pad
-              "${mod}+Shift+space" = "floating toggle";
+              # "${mod}+Shift+space" = "floating toggle";
 
               # Screen Layout
               "${mod}+Shift+t" = "exec xrandr --auto";
@@ -248,11 +248,11 @@ in {
               # Notifications
               "${mod}+Shift+n" = "exec killall -SIGUSR1 .dunst-wrapped";
               "${mod}+n" = "exec killall -SIGUSR2 .dunst-wrapped";
-              "Control+space" = "exec ${pkgs.dunst}/bin/dunstctl close";
-              "Control+Shift+space" =
+              "${mod}+space" = "exec ${pkgs.dunst}/bin/dunstctl close";
+              "${mod}+Shift+space" =
                 "exec ${pkgs.dunst}/bin/dunstctl close-all";
-              "Control+grave" = "exec ${pkgs.dunst}/bin/dunstctl history-pop";
-              "Control+Shift+period" = "exec ${pkgs.dunst}/bin/dunstctl action";
+              "${mod}+grave" = "exec ${pkgs.dunst}/bin/dunstctl history-pop";
+              "${mod}+period" = "exec ${pkgs.dunst}/bin/dunstctl action";
             })]);
 
         inherit fonts colors;
