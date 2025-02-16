@@ -34,6 +34,7 @@
     enable = true;
     shellAliases = {
       "oops" = "fuck";
+      "update" = "{ cd ~/code/nixos-config niv update}";
       "nrs" = "sudo ~/code/nixos-config/rebuild-nixos";
       "hms" = "~/code/nixos-config/rebuild-home";
       "gc" = "git clone";
