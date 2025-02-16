@@ -72,5 +72,7 @@
   hardware.graphics.enable = true;
   services.displayManager.defaultSession = "none+i3";
   services.pcscd.enable = true;
+
+  services.spice-vdagentd.enable = true;
   nix.settings.experimental-features = [ "nix-command" ];
 }
