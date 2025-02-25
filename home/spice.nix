@@ -1,5 +1,7 @@
 { config, lib, pkgs, ... }:
 with lib; {
+
+  home.packages = [ pkgs.spice-vdagent ];
   systemd.user.services.spice-vdagent = mkIf config.elle.is_vm {
     Unit = {
       Description = "Spice vdagent";

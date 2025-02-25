@@ -14,8 +14,6 @@
 
   config = {
 
-    # nixpkgs.config.allowUnfree = true;
-
     home.username = "elle";
     home.homeDirectory = "/home/elle";
 
@@ -45,9 +43,21 @@
       niv
       nix-search-cli
 
+      xorg.xev
       xorg.libxcvt
       xlayoutdisplay
       arandr
+
+      #silly stuff
+      cowsay
+      fortune
+      cmatrix
+      oneko
+      pipes
+
+      # steam
+
+      xdotool
 
       # # You can also create simple shell scripts directly inside your
       # # configuration. For example, this adds a command 'my-hello' to your

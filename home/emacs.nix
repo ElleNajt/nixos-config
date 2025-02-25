@@ -18,11 +18,17 @@ in {
 
   home.packages = with pkgs; [
 
+    (aspellWithDicts (dicts: with dicts; [ en en-computers ]))
     mu
     isync
     offlineimap
     w3m
-    nerdfonts
+    pkgs.nerdfonts
+    # pkgs.nerd-fonts._0xproto
+    # pkgs.nerd-fonts.jetbrains-mono
+    # pkgs.nerd-fonts.fira-code
+    # pkgs.nerd-fonts.all-the-icons-nerd-fonts
+    # pkgs.nerd-fonts.sauce-code-pro
     ripgrep
     fd
     coreutils
