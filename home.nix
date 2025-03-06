@@ -45,6 +45,7 @@
 
       xorg.xev
       xorg.libxcvt
+
       xlayoutdisplay
       arandr
 
@@ -58,7 +59,6 @@
       # steam
 
       xdotool
-
       # # You can also create simple shell scripts directly inside your
       # # configuration. For example, this adds a command 'my-hello' to your
       # # environment:
@@ -105,6 +105,10 @@
     };
 
     home.sessionPath = [ "/home/elle/.emacs.d/bin" "/home/elle/.doom.d/bin" ];
+
+    # different parts of emacs keep looking for it in ~/.password-store/ , so I'm symlinking it there
+    home.file.".password-store".source = config.lib.file.mkOutOfStoreSymlink
+      "${config.home.homeDirectory}/.local/share/password-store";
 
     # Let Home Manager install and manage itself.
     programs.home-manager.enable = true;
