@@ -7,7 +7,7 @@
     PassCmd "pass show email/lnajt4@gmail.com-emacsapppassword"
     AuthMechs LOGIN
     SSLType IMAPS
-    SSLVersions TLSv1.3
+    # SSLVersions TLSv1.3
     CertificateFile ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt
 
     # REMOTE STORAGE
@@ -21,8 +21,8 @@
 
     # CHANNELS
     Channel gmail-inbox
-    Master :gmail-remote:
-    Slave :gmail-local:
+    Far :gmail-remote:
+    Near :gmail-local:
     Patterns "INBOX"
     Create Both
     Expunge Both
@@ -30,42 +30,59 @@
     SyncState *
     MaxMessages 1000
     MaxSize 200k
+    ExpireUnread yes
 
     Channel gmail-trash
-    Master :gmail-remote:"[Gmail]/Bin"
-    Slave :gmail-local:"[Gmail].Bin"
+    Far :gmail-remote:"[Gmail]/Bin"
+    Near :gmail-local:"[Gmail].Bin"
     Create Both
     Expunge Both
     SyncState *
     MaxMessages 100
     MaxSize 200k
+    ExpireUnread yes
 
     Channel gmail-sent
-    Master :gmail-remote:"[Gmail]/Sent Mail"
-    Slave :gmail-local:"[Gmail].Sent Mail"
+    Far :gmail-remote:"[Gmail]/Sent Mail"
+    Near :gmail-local:"[Gmail].Sent Mail"
     Create Both
     Expunge Both
     SyncState *
     MaxMessages 1000
     MaxSize 200k
+    ExpireUnread yes
+
+
+    Channel gmail-drafts
+    Far :gmail-remote:"[Gmail]/Drafts"
+    Near :gmail-local:"[Gmail].Drafts"
+    Create Both
+    Expunge Both
+    SyncState *
+    MaxMessages 100
+    MaxSize 200k
+    ExpireUnread yes
+
 
     Channel gmail-all
-    Master :gmail-remote:"[Gmail]/All Mail"
-    Slave :gmail-local:"[Gmail].All Mail"
+    Far :gmail-remote:"[Gmail]/All Mail"
+    Near :gmail-local:"[Gmail].All Mail"
     Create Both
     Expunge Both
     SyncState *
     MaxMessages 1000
     MaxSize 200k
+    ExpireUnread yes
 
     Channel gmail-starred
-    Master :gmail-remote:"[Gmail]/Starred"
-    Slave :gmail-local:"[Gmail].Starred"
+    Far :gmail-remote:"[Gmail]/Starred"
+    Near :gmail-local:"[Gmail].Starred"
     Create Both
     Expunge Both
     SyncState *
     MaxMessages 1000
     MaxSize 200k
+    ExpireUnread yes
 
     Group gmail
     Channel gmail-inbox
@@ -73,6 +90,8 @@
     Channel gmail-trash
     Channel gmail-all
     Channel gmail-starred
+    Channel gmail-drafts
+
   '';
 
   # Ensure mail directories exist
