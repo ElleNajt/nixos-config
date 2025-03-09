@@ -74,4 +74,8 @@
 
   services.spice-vdagentd.enable = true;
   nix.settings.experimental-features = [ "nix-command" ];
+
+  nix.nixPath =
+
+    [ "nixpkgs=${(import ./nix/sources.nix).nixpkgs}" ];
 }

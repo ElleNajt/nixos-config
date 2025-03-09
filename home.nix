@@ -123,5 +123,8 @@
         allow-emacs-pinentry
       '';
     };
+
+    home.sessionVariables.NIX_PATH =
+      "nixpkgs=${(import ./nix/sources.nix).nixpkgs}";
   };
 }
