@@ -4,8 +4,10 @@
   imports = [
     ./development/nix.nix
     ./development/python.nix
-    ./development/rust.nix
+    ./development/clojure.nix
+    # ./development/rust.nix
     ./development/elisp.nix
+    ./development/c.nix
     ./development/shell.nix
     ./development/latex.nix
   ];
