@@ -2,9 +2,13 @@
 # your system. Help is available in the configuration.nix(5) man page, on
 # https://search.nixos.org/options and in the NixOS manual (`nixos-help`).
 
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs ? import (import ./nix/sources.nix).nixpkgs { }, ... }:
 
 {
+
+  system.extraSystemBuilderCmds = ''
+    echo "Using nixpkgs: ${pkgs.lib.version}" >&2
+  '';
 
   # nixpkgs.pkgs =
   #   import (import ./nix/sources.nix).nixpkgs config.nixpkgs.config;
