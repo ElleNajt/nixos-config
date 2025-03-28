@@ -35,15 +35,28 @@
   python3
   ripgrep
   rlwrap
+
   ruff
   samba
+  aspell
   shellcheck
+
+  # tidal cycles
+  ghc
+  cabal-install
+  haskell-language-server
+  haskellPackages.ormolu
+  # tidal
+  # superdirt # SuperCollider plugin for Tidal
+
   shfmt
+  gnupg
   tree
   vim
   w3m
   yt-dlp
 
+  # overtone
   clojure
   babashka
   leiningen
@@ -77,12 +90,14 @@
 
     ".overtone/config.clj".text = ''
 
-    {:os :mac,
-    :user-name "Elle",
-    :server :internal,
-    :sc-args {:hw-sample-rate 44100},
-    :versions-seen #{"v0.16.3331" "v0.10.6"}}
+{:os :mac
+ :user-name "Elle"
+ :server :external
+ :audio-device "Multi-Output Device"
+ :sc-args {:hw-sample-rate 44100}
+ :versions-seen #{"v0.16.3331" "v0.10.6"}}
     '';
+
 
     ".bashrc".text = ''
       set -o vi
@@ -105,7 +120,7 @@
       export PASSWORD_STORE_DIR="/Users/elle/.local/share/password-store"
       EDITOR="emacsclient"
 
-      alias hms="home-manager switch"
+      alias hms="home-manager switch; brewup"
 
       alias brewup="brew bundle --global";
       '';
@@ -120,19 +135,23 @@
       tap "railwaycat/emacsmacport"
 
       brew "aom"
+      # not working via brew file :(  
+      # brew "blackhole-2ch", require_sudo: true
       brew "autoconf"
       brew "automake"
       brew "cmake"
       brew "coreutils"
       brew "fd"
       brew "libass"
+
+      brew "libvterm"
       brew "librist"
       brew "pango"
       brew "ffmpeg"
       brew "gifsicle"
       brew "git"
       brew "pkgconf"
-      brew "jack", restart_service: :changed
+      # brew "jack", restart_service: :changed
       brew "latexindent"
       brew "libgccjit"
       brew "libtool"
@@ -148,7 +167,6 @@
       brew "koekeishiya/formulae/skhd"
       brew "koekeishiya/formulae/yabai"
 
-      cask "blackhole-2ch"
       cask "emacs"
       cask "gstreamer-runtime"
       cask "mactex"
@@ -168,6 +186,49 @@
     #   org.gradle.daemon.idletimeout=3600000
     # '';
   };
+
+
+
+home.file."Library/Application Support/SuperCollider/startup.scd".text = ''
+(
+
+Server.default.options.outDevice_("SuperCollider Device");
+s.reboot { // server options are only updated on reboot
+    // configure the sound server: here you could add hardware specific options
+    // see http://doc.sccode.org/Classes/ServerOptions.html
+    s.options.numBuffers = 1024 * 256; // increase this if you need to load more samples
+    s.options.memSize = 8192 * 32; // increase this if you get "alloc failed" messages
+    s.options.numWireBufs = 64; // increase this if you get "exceeded number of interconnect buffers" messages 
+    s.options.maxNodes = 1024 * 32; // increase this if you are getting drop outs and the message "too many nodes"
+    s.options.numOutputBusChannels = 2; // set this to your hardware output channel size, if necessary
+    s.options.numInputBusChannels = 2; // set this to your hardware output channel size, if necessary
+    // boot the server and start SuperDirt
+    s.waitForBoot {
+
+        ~dirt = SuperDirt(2, s); // two output channels, increase if you want to pan across more channels
+        ~dirt.loadSoundFiles;   // load samples (path containing a wildcard can be passed in)
+        ~dirt.loadSoundFiles("/Users/Elle/Dirt/Dirt-Samples/*");
+        // s.sync; // optionally: wait for samples to be read
+        ~dirt.start(57120, 0 ! 12);   // start listening on port 57120, create two busses each sending audio to channel 0
+
+        // optional, needed for convenient access from sclang:
+        (
+            ~d1 = ~dirt.orbits[0]; ~d2 = ~dirt.orbits[1]; ~d3 = ~dirt.orbits[2];
+            ~d4 = ~dirt.orbits[3]; ~d5 = ~dirt.orbits[4]; ~d6 = ~dirt.orbits[5];
+            ~d7 = ~dirt.orbits[6]; ~d8 = ~dirt.orbits[7]; ~d9 = ~dirt.orbits[8];
+            ~d10 = ~dirt.orbits[9]; ~d11 = ~dirt.orbits[10]; ~d12 = ~dirt.orbits[11];
+        );
+    };
+
+    s.latency = 0.3; // increase this if you get "late" messages
+
+  // ServerOptions.devices;
+  //    Server.default.options.outDevice_("SuperCollider Device");
+  //    Server.default.reboot;
+  //    SuperDirt.start();
+};
+);
+'';
 
   # Home Manager can also manage your environment variables through
   # 'home.sessionVariables'. These will be explicitly sourced when using a
