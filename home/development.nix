@@ -7,6 +7,7 @@
     ./development/clojure.nix
     # ./development/rust.nix
     ./development/elisp.nix
+    ./development/haskell.nix
     ./development/c.nix
     ./development/shell.nix
     ./development/latex.nix
