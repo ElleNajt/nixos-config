@@ -33,6 +33,8 @@
 
     enable = true;
     shellAliases = {
+      "aider-claude" =
+        "aider --model sonnet --api-key anthropic=$(pass api-keys/claude-api)";
       "oops" = "fuck";
       "update" = "{ cd ~/code/nixos-config niv update}";
       "nrs" = "sudo ~/code/nixos-config/rebuild-nixos";
@@ -47,6 +49,14 @@
   # taken from this
   # https://github.com/direnv/direnv/issues/73
   # this makes it possible for envrc to set aliases
+
+  home.file.".aider.conf.yml".text = ''
+    dark-mode: true
+    cache-prompts: true
+
+
+
+  '';
 
   home.file.".direnvrc".text = ''
     # Clear existing aliases when entering a directory

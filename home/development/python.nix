@@ -19,6 +19,10 @@
         jupyter_core
         jupyterlab
         pyzmq
+        pandas
+        tabulate
+        flake8
+
       ]))
 
   ];
