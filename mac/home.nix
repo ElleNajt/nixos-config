@@ -116,6 +116,9 @@
   # plain files is through 'home.file'.
   home.file = {
 
+    ".claude".source = ../home/development/Claude;
+    ".claude".recursive = true;
+
     ".overtone/config.clj".text = ''
 
 {:os :mac
