@@ -86,13 +86,37 @@ fi
 
 case "$1" in
 sync)
-  # Sync current directory to RunPod
+  # Sync current directory to RunPod - SECURITY: Only allow syncing from current directory or subdirectories
   shift
   SOURCE_DIR="${1:-.}"
   DEST_DIR="${2:-$REMOTE_PROJECT_DIR}"
+
+  # Security check: Resolve paths and ensure source is within current directory tree
+  # Use pwd -P to resolve symlinks and get canonical paths (portable across all Unix systems)
+  CURRENT_REAL="$(pwd -P)"
+  SOURCE_REAL="$(cd "$SOURCE_DIR" 2>/dev/null && pwd -P)" || {
+    echo "❌ Invalid source directory: $SOURCE_DIR"
+    exit 1
+  }
+
+  # Check if source is current directory or a subdirectory (using canonical paths)
+  case "$SOURCE_REAL" in
+  "$CURRENT_REAL" | "$CURRENT_REAL"/*)
+    # Safe: within current directory tree
+    ;;
+  *)
+    echo "❌ Security error: Can only sync current directory or subdirectories"
+    echo "   Attempted: $SOURCE_DIR"
+    echo "   Resolved to: $SOURCE_REAL"
+    echo "   Current dir: $CURRENT_REAL"
+    echo "   Use 'cd' to change to the directory you want to sync"
+    exit 1
+    ;;
+  esac
+
   echo "📤 Syncing $SOURCE_DIR to RunPod:$DEST_DIR"
   echo "   Config: $CONFIG_FILE"
-  rsync -avz --progress -e "ssh -i $SSH_KEY $PORT_OPT" "$SOURCE_DIR/" "$RUNPOD_USER@$RUNPOD_HOST:$DEST_DIR"
+  rsync -avz --progress -e "ssh -i '$SSH_KEY' $PORT_OPT" "$SOURCE_DIR/" "$RUNPOD_USER@$RUNPOD_HOST:$DEST_DIR"
   echo "✅ Sync complete"
   ;;
 run)
