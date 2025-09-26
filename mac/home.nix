@@ -19,7 +19,24 @@
   # environment.
   home.packages = with pkgs; [
 
+
+(python3.withPackages (ps: with ps; [
+  ipython
+  pandas
+  numpy
+  scipy
+  matplotlib
+  requests
   black
+  pip
+]))
+
+  autoconf
+  automake
+  libtool
+  pkgconf
+  poppler
+  libnotify
   direnv
   ffmpeg
   gh
@@ -32,9 +49,9 @@
   pass
   pngpaste
   pyright
-  python3
   ripgrep
   rlwrap
+  aider-chat
 
   ruff
   samba
@@ -44,6 +61,9 @@
   # tidal cycles
   ghc
   cabal-install
+
+  # haskellPackages.tidal
+
   haskell-language-server
   haskellPackages.ormolu
   # tidal
@@ -55,6 +75,12 @@
   vim
   w3m
   yt-dlp
+
+  nodejs
+  nodePackages.npm
+
+  # RunPod script
+  (pkgs.writeShellScriptBin "runpod" (builtins.readFile ./runpod.sh))
 
   # overtone
   clojure
@@ -84,6 +110,8 @@
     # '')
   ];
 
+  # haskell.packages = with pkgs.haskellPackages; [ tidal ];
+
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
   # plain files is through 'home.file'.
   home.file = {
@@ -98,14 +126,23 @@
  :versions-seen #{"v0.16.3331" "v0.10.6"}}
     '';
 
+    # ".ghci".text = ''
+    # :set prompt "> "
+    # :set -fno-print-bind-result
+    # '';
+
 
     ".bashrc".text = ''
       set -o vi
       PATH="$PATH:~/scripts"
+      PATH="$PATH:~/code/scripts"
+
+      PATH="$PATH:/Users/elle/code/claude-code.el/bin"
       alias ipython="nix-shell -p 'python3.withPackages(p:[p.ipython p.pandas])' --run ipython"
       . "$HOME/.cargo/env"
       export PASSWORD_STORE_DIR="~/.local/share/password-store"
       alias hms="home-manager switch"
+      alias doom="~/.emacs.d/bin/doom"
 
       alias brewup="brew bundle --global";
     '';
@@ -114,13 +151,25 @@
       set -o vi
       eval "$(direnv hook zsh)"
 
+
+
+    # NVM setup
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+    [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
       PATH="$PATH:~/scripts"
+      PATH="$PATH:~/code/scripts"
       PATH="/Library/TeX/texbin:$PATH"
+
+      PATH="$PATH:/Users/elle/code/claude-code.el/bin"
 
       export PASSWORD_STORE_DIR="/Users/elle/.local/share/password-store"
       EDITOR="emacsclient"
 
-      alias hms="home-manager switch; brewup"
+      alias hms="home-manager switch"
+
+      alias doom="~/.emacs.d/bin/doom"
 
       alias brewup="brew bundle --global";
       '';
@@ -128,14 +177,14 @@
 
     ".Brewfile".text = ''
       # Taps
-      tap "d12frosted/emacs-plus"
+      # tap "d12frosted/emacs-plus"
       tap "homebrew/cask-versions"
       tap "homebrew/services"
       tap "koekeishiya/formulae"
       tap "railwaycat/emacsmacport"
 
       brew "aom"
-      # not working via brew file :(  
+      # not working via brew file :(
       # brew "blackhole-2ch", require_sudo: true
       brew "autoconf"
       brew "automake"
@@ -143,10 +192,22 @@
       brew "coreutils"
       brew "fd"
       brew "libass"
+      # brew "ghc"
+      # brew "cabal-install"
+      # brew "haskell-stack"
+      brew "cliclick"
 
+
+      # brew "autoconf"
+      # brew "automake"
+      # brew "libtool"
+      # brew "pkgconf"
+      # brew "poppler"
       brew "libvterm"
       brew "librist"
       brew "pango"
+
+      brew "nvm"
       brew "ffmpeg"
       brew "gifsicle"
       brew "git"
@@ -166,6 +227,7 @@
       brew "texinfo"
       brew "koekeishiya/formulae/skhd"
       brew "koekeishiya/formulae/yabai"
+      brew "docker"
 
       cask "emacs"
       cask "gstreamer-runtime"
@@ -198,7 +260,7 @@ s.reboot { // server options are only updated on reboot
     // see http://doc.sccode.org/Classes/ServerOptions.html
     s.options.numBuffers = 1024 * 256; // increase this if you need to load more samples
     s.options.memSize = 8192 * 32; // increase this if you get "alloc failed" messages
-    s.options.numWireBufs = 64; // increase this if you get "exceeded number of interconnect buffers" messages 
+    s.options.numWireBufs = 64; // increase this if you get "exceeded number of interconnect buffers" messages
     s.options.maxNodes = 1024 * 32; // increase this if you are getting drop outs and the message "too many nodes"
     s.options.numOutputBusChannels = 2; // set this to your hardware output channel size, if necessary
     s.options.numInputBusChannels = 2; // set this to your hardware output channel size, if necessary
