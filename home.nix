@@ -58,6 +58,13 @@
       # steam
 
       xdotool
+
+      # RunPod script
+      (pkgs.writeScriptBin "runpod" ''
+        #!${pkgs.python3}/bin/python3
+        ${builtins.readFile ./home/platforms/runpod.py}
+      '')
+
       # # You can also create simple shell scripts directly inside your
       # # configuration. For example, this adds a command 'my-hello' to your
       # # environment:
@@ -69,6 +76,10 @@
     # Home Manager is pretty good at managing dotfiles. The primary way to manage
     # plain files is through 'home.file'.
     home.file = {
+
+      ".claude".source = ./home/development/Claude;
+      ".claude".recursive = true;
+
       # # Building this configuration will create a copy of 'dotfiles/screenrc' in
       # # the Nix store. Activating the configuration will then make '~/.screenrc' a
       # # symlink to the Nix store copy.
