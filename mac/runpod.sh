@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
-
 ### CLAUDE.MD
 
 # # RunPod Deployment:
 
-# When working with projects that need GPU resources, use the `runpod` command:
+# When working with projects that need GPU resources, use the `runpod sync` command
+# to sync the code over, and then run it with `runpod run`. Avoid editing code remotely, do it
+# locally and then push. You can pull the results back with rsync.
 
 # ## Setup:
 # 1. Create a `.runpod_config` file in project root with RunPod's **direct TCP connection** details:
