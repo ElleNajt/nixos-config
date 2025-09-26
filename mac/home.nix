@@ -1,6 +1,7 @@
 { config, pkgs, ... }:
 
 {
+
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   home.username = "elle";
@@ -80,7 +81,10 @@
   nodePackages.npm
 
   # RunPod script
-  (pkgs.writeShellScriptBin "runpod" (builtins.readFile ./runpod.sh))
+  (pkgs.writeScriptBin "runpod" ''
+    #!${pkgs.python3}/bin/python3
+    ${builtins.readFile ../home/platforms/runpod.py}
+  '')
 
   # overtone
   clojure
