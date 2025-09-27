@@ -16,20 +16,11 @@ locally and then push. You can pull the results back with rsync.
    }
    ```
 
-2. **Dual Environment Setup** for security:
-   - `.env` (local only, never synced): Contains sensitive keys like OpenAI, Anthropic
-   - `.env.runpod` (synced to remote): Contains only read-only/safe keys like HF read-only token
-
-   ```bash
-   # .env (stays local)
-   OPENAI_API_KEY=sk-expensive-key-here
-   ANTHROPIC_API_KEY=sk-expensive-key-here
-   HF_TOKEN=hf_full_write_access_token
-
-   # .env.runpod (gets synced, becomes .env on remote)
-   HF_TOKEN=hf_read_only_token_here
-   TOGETHER_API_KEY=safe-inference-key
-   ```
+2. **Secrets Management**:
+   - **Keep sensitive secrets OUT of the project directory entirely**
+   - Store main secrets in parent directory: `../.env` or `~/.config/secrets/`
+   - Only put safe/read-only tokens in project `.env` (if any)
+   - **Golden rule: Nothing sensitive should be in the synced folder**
 
 ## Usage:
 - `runpod config` - Show current configuration
@@ -38,14 +29,14 @@ locally and then push. You can pull the results back with rsync.
 - `runpod` - Open interactive SSH session
 
 ## Security Features:
-- **Automatic exclusions**: `.env`, `*.key`, `*.pem`, `.ssh/` files never synced
-- **Safe environment**: Only `.env.runpod` contents available on remote
-- **Read-only tokens**: Use limited-scope API tokens in `.env.runpod`
+- **Automatic exclusions**: `*.key`, `*.pem`, `.ssh/` files never synced
+- **No sensitive data**: Keep all sensitive secrets outside the project directory
+- **Read-only tokens**: Only use limited-scope API tokens in synced files
 
 ## Example Workflow:
 ```bash
 cd ~/code/investigatingOwlalignment
-runpod sync                                    # Upload code (excludes .env)
-runpod run "cd ~/project && python script.py" # Run script (uses .env.runpod)
-runpod sync ./results ~/project/results/      # Download results
+runpod sync                                    # Upload code
+runpod run "cd ~/project && python script.py" # Run script
+rsync -avz user@host:~/project/results/ ./results/  # Download results
 ```

@@ -18,10 +18,7 @@ I think this is reasonably safe, as long as nothing too sensitive ends up on the
 
 **SECURITY WARNING**
 
-Environment variables are handled like this:
-.env is skipped and .env.runpod is sent over via runpod sync command, and becomes .env in the runpod machine.
-
-if you let claude yolo on the runpod run command, then those secrets could get exfiltrated.
+.env is sent over with rsync. if you let claude yolo on the runpod run command, then those secrets could get exfiltrated.
 
 Currently I'm okay with this, because the only secret I need on the remote
 machine is a hugging face token, and hugging face token I'm providing is read
@@ -224,7 +221,6 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "-avz",
         "--progress",
         # Exclude sensitive files
-        "--exclude=.env",  # Never sync full .env
         "--exclude=*.key",  # No key files
         "--exclude=*.pem",  # No PEM files
         "--exclude=.ssh/",  # No SSH keys
@@ -239,17 +235,6 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     try:
         subprocess.run(cmd, check=True)
         print("✅ Sync complete")
-
-        # Copy .env.runpod to .env on remote if it exists
-        env_runpod_local = source_path / ".env.runpod"
-        if env_runpod_local.exists():
-            print("📝 Setting up remote .env from .env.runpod")
-            run_ssh_command(
-                config, f"cd {shlex.quote(dest_dir)} && cp .env.runpod .env"
-            )
-            print("✅ Remote .env configured")
-        else:
-            print("⚠️  No .env.runpod found - no remote .env will be created")
 
     except subprocess.CalledProcessError as e:
         print(f"❌ Rsync failed with exit code {e.returncode}")
