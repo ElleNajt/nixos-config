@@ -93,6 +93,16 @@ def load_config(config_file: Path) -> Dict[str, str]:
         print(f"❌ Missing required fields in {config_file}: {', '.join(missing)}")
         sys.exit(1)
 
+    # Validate config values for security (before quoting)
+    validate_config_values(config)
+
+    # Make all config values shell-safe by quoting them
+    config["user"] = shlex.quote(config["user"])
+    config["host"] = shlex.quote(config["host"])
+    config["port"] = shlex.quote(config["port"])
+    config["remote_dir"] = shlex.quote(config["remote_dir"])
+    # SSH key will be quoted when expanded to Path
+
     return config
 
 
@@ -121,7 +131,7 @@ def validate_ssh_key_path(ssh_key_path: str) -> Path:
     sys.exit(1)
 
 
-def validate_config(config: Dict[str, str]) -> None:
+def validate_config_values(config: Dict[str, str]) -> None:
     """Validate configuration values for security."""
 
     # Validate hostname (alphanumeric, dots, hyphens only)
@@ -209,12 +219,6 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
 
     print(f"📤 Syncing {source_dir} to RunPod:{dest_dir}")
 
-    # Build rsync command with proper SSH options and exclusions
-    # Use shlex.quote to prevent shell injection on local system
-    ssh_cmd = f"ssh -i {shlex.quote(str(ssh_key))} -p {shlex.quote(config['port'])}"
-    # Build safe destination spec to prevent shell injection
-    safe_destination = f"{shlex.quote(config['user'])}@{shlex.quote(config['host'])}:{shlex.quote(dest_dir)}"
-
     cmd = [
         "rsync",
         "-avz",
@@ -227,9 +231,9 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "--exclude=__pycache__/",  # No Python cache
         "--exclude=.git/",  # No git directory
         "-e",
-        ssh_cmd,
-        f"{source_path}/",
-        safe_destination,
+        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
+        f"{shlex.quote(str(source_path))}/",
+        f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
     ]
 
     try:
@@ -240,9 +244,9 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         env_runpod_local = source_path / ".env.runpod"
         if env_runpod_local.exists():
             print("📝 Setting up remote .env from .env.runpod")
-            # Use shlex.quote to prevent command injection on remote
-            safe_dest_dir = shlex.quote(dest_dir)
-            run_ssh_command(config, f"cd {safe_dest_dir} && cp .env.runpod .env")
+            run_ssh_command(
+                config, f"cd {shlex.quote(dest_dir)} && cp .env.runpod .env"
+            )
             print("✅ Remote .env configured")
         else:
             print("⚠️  No .env.runpod found - no remote .env will be created")
@@ -298,7 +302,6 @@ def main():
         sys.exit(1)
 
     config = load_config(config_file)
-    validate_config(config)
 
     # Parse command line arguments
     if len(sys.argv) == 1:
