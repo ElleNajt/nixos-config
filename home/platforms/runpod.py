@@ -7,27 +7,36 @@ Tool for syncing code to RunPod and running commands remotely.
 
 ⚠️ Must use the "SSH over exposed TCP" connection from RunPod dashboard, otherwise you'll get a PTY error.
 
+The intention for this tool is to add thse to the allowed commands for claude
+
+      "Bash(runpod run:*)",
+      "Bash(runpod sync:*)"
+
+So claude can edit files how it likes locally, and rsync them over and execute code on the runpod machine without human intervention.
+
+I think this is reasonably safe, as long as nothing too sensitive ends up on the runpod machine, but still:
+
 **SECURITY WARNING**
-if secrets are stored in the working dir, you let
-Claude yolo run anything remotely, then it could share those secrets with
-someone.
 
-runpod does support secret management, but they still get inject into the environment and could be exfiltrated in the same way.
+Environment variables are handled like this:
+.env is skipped and .env.runpod is sent over via runpod sync command, and becomes .env in the runpod machine.
 
-currently I'm okay with this, because the hugging face token I'm providing is
-read only, and I've added a .env.runpod that contains variables that I'm okay
-with being exposed in .env on the runpod
+if you let claude yolo on the runpod run command, then those secrets could get exfiltrated.
 
-Solution ideas:
+Currently I'm okay with this, because the only secret I need on the remote
+machine is a hugging face token, and hugging face token I'm providing is read
+only.
 
-1. Run an intercepting proxy sidecar in runpod, and intercept all network traffic through it, and inject the secrets into the correct outbound requests.
- That way nothing private ends up on the remote machine.
-2. Use iptables to block traffic, and for hugging space have some proxy block uploads to huggingface somehow?
-3. Just accept the risk of some env variables getting exfiltrated, make sure to not put anything actually sensitive in the .env.
+It may also make sense to have the iptables block traffic to anything that isn't
+hugging face, and rely on ACL from the read only key.
 
-Other than that, the intention is for this to let Claude write code locally,
-then ship it off to the gpu box, and run whatever commands it desires there.
+The *best* way to solve the exfiltration issue would be to run an intercepting proxy sidecar in
+runpod, and intercept all network traffic through it, and inject the secrets
+into the correct outbound requests. That way nothing private ends up on the
+remote machine, so there's no exfiltration risk at all.
 
+(runpod does support secret management, but they get injected into the
+environment and could be exfiltrated in the same way.)
 
 """
 
