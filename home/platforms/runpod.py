@@ -18,22 +18,27 @@ I think this is reasonably safe, as long as nothing too sensitive ends up on the
 
 **SECURITY WARNING**
 
-.env is sent over with rsync. if you let claude yolo on the runpod run command, then those secrets could get exfiltrated.
+.env is sent over with runpod sync.
+
+If you let claude runpod run command without oversight, then those secrets could
+get exfiltrated. (E.g. claude code fetches information and gets prompt injected
+to share its secrets; it can only do code execution on the runpod pod via runpod
+run, but if it can it could exfiltrate anything there.)
 
 Currently I'm okay with this, because the only secret I need on the remote
 machine is a hugging face token, and hugging face token I'm providing is read
-only.
+only, so I think the cost of it getting exfiltrated is low.
 
 It may also make sense to have the iptables block traffic to anything that isn't
-hugging face, and rely on ACL from the read only key.
+hugging face, and rely on ACL from the read only key to prevent writing secrets to huggingface.
 
 The *best* way to solve the exfiltration issue would be to run an intercepting proxy sidecar in
 runpod, and intercept all network traffic through it, and inject the secrets
 into the correct outbound requests. That way nothing private ends up on the
 remote machine, so there's no exfiltration risk at all.
 
-(runpod does support secret management, but they get injected into the
-environment and could be exfiltrated in the same way.)
+(Runpod does support secret management, but they get injected into the
+environment and could be exfiltrated in the same way, so it is not useful for this.)
 
 """
 
