@@ -313,7 +313,10 @@ def main():
         show_help()
     elif sys.argv[1] == "sync":
         source_dir = sys.argv[2] if len(sys.argv) > 2 else "."
-        dest_dir = sys.argv[3] if len(sys.argv) > 3 else config["remote_dir"]
+        # Quote command line dest_dir for consistency with config values
+        dest_dir = (
+            shlex.quote(sys.argv[3]) if len(sys.argv) > 3 else config["remote_dir"]
+        )
         sync_directory(config, source_dir, dest_dir)
     elif sys.argv[1] == "run":
         if len(sys.argv) < 3:
