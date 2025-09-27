@@ -41,8 +41,8 @@ environment and could be exfiltrated in the same way.)
 """
 
 import json
-import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -144,7 +144,7 @@ def validate_config(config: Dict[str, str]) -> None:
         sys.exit(1)
 
     # Validate SSH key path is in allowed directories
-    ssh_key = validate_ssh_key_path(config["ssh_key"])
+    validate_ssh_key_path(config["ssh_key"])
 
     # Validate remote directory (allow tilde for home directory)
     if not re.match(r"^[a-zA-Z0-9_.~/-]+$", config["remote_dir"]):
@@ -186,8 +186,11 @@ def run_ssh_command(config: Dict[str, str], command: str) -> None:
         "-p",
         config["port"],
         f"{config['user']}@{config['host']}",
-        command,
     ]
+
+    # Only add command if it's not empty (for interactive sessions)
+    if command.strip():
+        cmd.append(command)
 
     try:
         subprocess.run(cmd, check=True)
@@ -207,7 +210,11 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     print(f"📤 Syncing {source_dir} to RunPod:{dest_dir}")
 
     # Build rsync command with proper SSH options and exclusions
-    ssh_cmd = f"ssh -i '{ssh_key}' -p {config['port']}"
+    # Use shlex.quote to prevent shell injection on local system
+    ssh_cmd = f"ssh -i {shlex.quote(str(ssh_key))} -p {shlex.quote(config['port'])}"
+    # Build safe destination spec to prevent shell injection
+    safe_destination = f"{shlex.quote(config['user'])}@{shlex.quote(config['host'])}:{shlex.quote(dest_dir)}"
+
     cmd = [
         "rsync",
         "-avz",
@@ -222,7 +229,7 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "-e",
         ssh_cmd,
         f"{source_path}/",
-        f"{config['user']}@{config['host']}:{dest_dir}",
+        safe_destination,
     ]
 
     try:
@@ -233,7 +240,9 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         env_runpod_local = source_path / ".env.runpod"
         if env_runpod_local.exists():
             print("📝 Setting up remote .env from .env.runpod")
-            run_ssh_command(config, f"cd {dest_dir} && cp .env.runpod .env")
+            # Use shlex.quote to prevent command injection on remote
+            safe_dest_dir = shlex.quote(dest_dir)
+            run_ssh_command(config, f"cd {safe_dest_dir} && cp .env.runpod .env")
             print("✅ Remote .env configured")
         else:
             print("⚠️  No .env.runpod found - no remote .env will be created")
@@ -307,6 +316,8 @@ def main():
         if len(sys.argv) < 3:
             print("Usage: runpod run 'command to execute'")
             sys.exit(1)
+        # Intentionally allow arbitrary command execution on remote server
+        # This is the core feature - let Claude/user run whatever they want
         command = " ".join(sys.argv[2:])
         run_ssh_command(config, command)
     else:
