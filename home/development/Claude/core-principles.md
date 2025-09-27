@@ -1,5 +1,10 @@
 # IMPORTANT
 
+After large changes, add and commit them.
+Only do this for large changes.
+
+Do not run commands with a time out, unless explicitely asked.
+
 Please, do not write any graceful fallbacks. I want code to fail if the intended approach does not work. Please, no try-except blocks, handling "legacy" formats (unless asked for).
 
 # important-instruction-reminders

@@ -2,14 +2,33 @@
 """
 RunPod Deployment Tool
 
+
 Tool for syncing code to RunPod and running commands remotely.
 
-Remaining security concerns -- if secrets are stored in the working dir, you let
+⚠️ Must use the "SSH over exposed TCP" connection from RunPod dashboard, otherwise you'll get a PTY error.
+
+**SECURITY WARNING**
+if secrets are stored in the working dir, you let
 Claude yolo run anything remotely, then it could share those secrets with
 someone.
 
-I'm not sure how to deal with this beyond a more complicated intercepting proxy
-solution that adds the secrets to outbound requests :/
+runpod does support secret management, but they still get inject into the environment and could be exfiltrated in the same way.
+
+currently I'm okay with this, because the hugging face token I'm providing is
+read only, and I've added a .env.runpod that contains variables that I'm okay
+with being exposed in .env on the runpod
+
+Solution ideas:
+
+1. Run an intercepting proxy sidecar in runpod, and intercept all network traffic through it, and inject the secrets into the correct outbound requests.
+ That way nothing private ends up on the remote machine.
+2. Use iptables to block traffic, and for hugging space have some proxy block uploads to huggingface somehow?
+3. Just accept the risk of some env variables getting exfiltrated, make sure to not put anything actually sensitive in the .env.
+
+Other than that, the intention is for this to let Claude write code locally,
+then ship it off to the gpu box, and run whatever commands it desires there.
+
+
 """
 
 import json
@@ -178,12 +197,19 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
 
     print(f"📤 Syncing {source_dir} to RunPod:{dest_dir}")
 
-    # Build rsync command with proper SSH options
+    # Build rsync command with proper SSH options and exclusions
     ssh_cmd = f"ssh -i '{ssh_key}' -p {config['port']}"
     cmd = [
         "rsync",
         "-avz",
         "--progress",
+        # Exclude sensitive files
+        "--exclude=.env",  # Never sync full .env
+        "--exclude=*.key",  # No key files
+        "--exclude=*.pem",  # No PEM files
+        "--exclude=.ssh/",  # No SSH keys
+        "--exclude=__pycache__/",  # No Python cache
+        "--exclude=.git/",  # No git directory
         "-e",
         ssh_cmd,
         f"{source_path}/",
@@ -193,6 +219,16 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     try:
         subprocess.run(cmd, check=True)
         print("✅ Sync complete")
+
+        # Copy .env.runpod to .env on remote if it exists
+        env_runpod_local = source_path / ".env.runpod"
+        if env_runpod_local.exists():
+            print("📝 Setting up remote .env from .env.runpod")
+            run_ssh_command(config, f"cd {dest_dir} && cp .env.runpod .env")
+            print("✅ Remote .env configured")
+        else:
+            print("⚠️  No .env.runpod found - no remote .env will be created")
+
     except subprocess.CalledProcessError as e:
         print(f"❌ Rsync failed with exit code {e.returncode}")
         sys.exit(1)
