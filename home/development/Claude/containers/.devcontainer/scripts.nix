@@ -16,4 +16,9 @@ in
   (pkgs.writeScriptBin "claudebox" ''
     ${builtins.readFile "${scriptsDir}/claudebox"}
   '')
+
+  (pkgs.writeScriptBin "runpod" ''
+    #!${pkgs.python3}/bin/python3
+    ${builtins.readFile "${scriptsDir}/runpod.py"}
+  '')
 ]

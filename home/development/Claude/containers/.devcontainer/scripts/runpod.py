@@ -21,29 +21,34 @@ I think this is reasonably safe, as long as nothing too sensitive ends up on the
 
 I am not a security expert! I'm just having fun learning about container security.
 
+I'm running this inside of the container that is set up by this folder. I do this because:
+
 1. Everything in the repo gets sent to the cloud machine, and there are no restrictions at all prevent it from being exfiltrated there.
 
 You might be able to use a runpod image that blocks all connections except to desired endpoints,
-Or just set things up so that nothing you are worried about ends up in the runpod machine.
+Or just set things up so that nothing you are worried about ends up in the runpod machine, which is what the container facilitates.
 
 E.g. I'm only sending over a read-only huggingface token.
 
 2. If claude can read stuff on your computer, it can move that stuff into the repo and send it over.
-Maybe mitigate with one of the anthropic containers, putting a one off ssh key into it.
-(Note that your claude credentials end up in the container when you log in unless you use a fancy interception proxy.
- Unclear if you should be concerned about this.)
+
+Note that your claude credentials end up in the container when you log in unless you use an interception proxy like the container here does.
+ Unclear if you should be concerned about this.
+
+I'm putting a one off ssh key into the container (i.e. one I made specifically for rundpod)
+# TODO[dsNaSAgBvm]  a better solution would be a similar intercepting proxy.
 
 I don't trust the claude permissions to prevent it from reading sensitive stuff.
-There are lots of issues abouts bugs in it, and claude can edit its own permissions file (!).
+There are lots of issues abouts bugs in it, and claude can edit its own permissions file (!). So it should live
 
-3. You should probably make the .runpod_config.json file uneditable by claude
-(e.g. with bwrap --bind-ro, or read only owned by root, or mounted as read only in the container),
+3. You should probably make the .runpod_config.json file uneditable by claude, like this container does,
 so that claude doesn't get tricked into connecting to another machine.
 
 4. Preference for running in a container over a VM so you can leverage the layered file system, and keep the git crednetials on the home machine.
 Claude can make commits, just push from the host.
 
-This is my docker container configuration: /Users/elle/code/nixos-config/home/development/Claude/containers/
+5. I've turned off the general firewall here. This is slightly yolo. I'd rather just careve out hugging face and the runpod ips.
+# TODO fix this
 
 
 """
@@ -58,7 +63,12 @@ from typing import Dict, Optional
 
 
 def find_config() -> Optional[Path]:
-    """Find .runpod_config.json in git repository root."""
+    """Find .runpod_config.json in git repository root or current directory."""
+    # First check current directory
+    cwd_config = Path.cwd() / ".runpod_config.json"
+    if cwd_config.is_file():
+        return cwd_config
+
     try:
         # Find git repository root
         result = subprocess.run(
@@ -116,6 +126,11 @@ def load_config(config_file: Path) -> Dict[str, str]:
 
 def validate_ssh_key_path(ssh_key_path: str) -> Path:
     """Validate SSH key is in expected locations only."""
+    # Check if running in container and key is available
+    container_key = Path("/home/node/.ssh/runpod_key")
+    if container_key.is_file():
+        return container_key
+
     ssh_key = Path(ssh_key_path).expanduser().resolve()
 
     # Only allow keys in standard SSH directories
@@ -193,18 +208,80 @@ def validate_source_path(source_path: str) -> Path:
     return source_real
 
 
+def ensure_host_in_known_hosts(config: Dict[str, str]) -> None:
+    """Ensure the host is in known_hosts."""
+    host = config["host"]
+    port = config["port"]
+
+    # Use writable known_hosts in container, fall back to ~/.ssh/known_hosts
+    ssh_dir = Path.home() / ".ssh"
+    known_hosts = ssh_dir / "known_hosts"
+
+    # If .ssh is read-only (mounted from host), use a writable location
+    if ssh_dir.exists() and not os.access(ssh_dir, os.W_OK):
+        known_hosts = Path("/tmp/.ssh_known_hosts")
+        # Also check host's known_hosts
+        host_known_hosts = ssh_dir / "known_hosts"
+        if host_known_hosts.exists():
+            with open(host_known_hosts) as f:
+                content = f.read()
+                if f"[{host}]:{port}" in content or f"{host}" in content:
+                    return
+
+    # Check if host is already in known_hosts
+    if known_hosts.exists():
+        with open(known_hosts) as f:
+            content = f.read()
+            # Check for host with port notation
+            if f"[{host}]:{port}" in content or f"{host}" in content:
+                return
+
+    print(f"🔑 Adding {host}:{port} to known_hosts...")
+    try:
+        # Run ssh-keyscan and append to known_hosts
+        result = subprocess.run(
+            ["ssh-keyscan", "-p", port, host],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        # Append to known_hosts
+        with open(known_hosts, "a") as f:
+            f.write(result.stdout)
+
+        print(f"✅ Added {host}:{port} to known_hosts")
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️  Warning: Could not scan host keys: {e}")
+        print("   You may need to manually accept the host key on first connection")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not update known_hosts: {e}")
+
+
 def run_ssh_command(config: Dict[str, str], command: str) -> None:
     """Run command on remote server via SSH."""
+    ensure_host_in_known_hosts(config)
     ssh_key = Path(config["ssh_key"]).expanduser()
 
-    cmd = [
-        "ssh",
-        "-i",
-        str(ssh_key),
-        "-p",
-        config["port"],
-        f"{config['user']}@{config['host']}",
-    ]
+    # Use custom known_hosts if .ssh is read-only
+    ssh_dir = Path.home() / ".ssh"
+    ssh_opts = []
+    if ssh_dir.exists() and not os.access(ssh_dir, os.W_OK):
+        ssh_opts = ["-o", "UserKnownHostsFile=/tmp/.ssh_known_hosts"]
+
+    cmd = (
+        [
+            "ssh",
+            "-i",
+            str(ssh_key),
+            "-p",
+            config["port"],
+        ]
+        + ssh_opts
+        + [
+            f"{config['user']}@{config['host']}",
+        ]
+    )
 
     # Only add command if it's not empty (for interactive sessions)
     if command.strip():
@@ -222,8 +299,15 @@ def run_ssh_command(config: Dict[str, str], command: str) -> None:
 
 def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
     """Push directory to remote server via rsync."""
+    ensure_host_in_known_hosts(config)
     source_path = validate_source_path(source_dir)
     ssh_key = Path(config["ssh_key"]).expanduser()
+
+    # Use custom known_hosts if .ssh is read-only
+    ssh_dir = Path.home() / ".ssh"
+    ssh_opts = ""
+    if ssh_dir.exists() and not os.access(ssh_dir, os.W_OK):
+        ssh_opts = "-o UserKnownHostsFile=/tmp/.ssh_known_hosts"
 
     print(f"📤 Pushing {source_dir} to RunPod:{dest_dir}")
 
@@ -240,7 +324,7 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "--exclude=venv/",  # No venv (created on remote)
         "--exclude=.direnv/",  # No direnv
         "-e",
-        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
+        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']} {ssh_opts}",
         f"{shlex.quote(str(source_path))}/",
         f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
     ]

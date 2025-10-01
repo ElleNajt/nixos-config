@@ -80,12 +80,6 @@
   nodejs
   nodePackages.npm
 
-  # RunPod script
-  (pkgs.writeScriptBin "runpod" ''
-    #!${pkgs.python3}/bin/python3
-    ${builtins.readFile ../home/platforms/runpod.py}
-  '')
-
   ] ++ (import ../home/development/Claude/containers/.devcontainer/scripts.nix { inherit pkgs; }) ++ [
 
   # overtone

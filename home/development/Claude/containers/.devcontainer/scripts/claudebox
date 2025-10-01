@@ -195,7 +195,25 @@ fi
 [[ "$MOUNT_CLAUDE_MD" == true && -f "$HOME/.claude/CLAUDE.md" ]] && docker_cmd+=(-v "$HOME/.claude/CLAUDE.md:/tmp/host-claude-md:ro")
 
 # Mount .runpod_config.json as read-only if it exists in current directory
-[[ -f "$(pwd)/.runpod_config.json" ]] && docker_cmd+=(-v "$(pwd)/.runpod_config.json:/workspace/.runpod_config.json:ro")
+if [[ -f "$(pwd)/.runpod_config.json" ]]; then
+    echo "📝 Found .runpod_config.json, mounting to container"
+    docker_cmd+=(-v "$(pwd)/.runpod_config.json:/workspace/.runpod_config.json:ro")
+
+    # Extract ssh_key path from config and mount it if it exists
+    SSH_KEY=$(jq -r '.ssh_key // empty' "$(pwd)/.runpod_config.json" 2>/dev/null || true)
+    if [[ -n "$SSH_KEY" ]]; then
+        # Expand ~ to home directory
+        SSH_KEY="${SSH_KEY/#\~/$HOME}"
+        if [[ -f "$SSH_KEY" ]]; then
+            echo "🔑 Mounting SSH key: $SSH_KEY"
+            docker_cmd+=(-v "$SSH_KEY:/tmp/runpod_key_host:ro")
+        else
+            echo "⚠️  SSH key not found: $SSH_KEY"
+        fi
+    fi
+else
+    echo "📝 No .runpod_config.json found in $(pwd)"
+fi
 
 docker_cmd+=("$DOCKER_IMAGE")
 
@@ -203,6 +221,18 @@ docker_cmd+=("$DOCKER_IMAGE")
 "${docker_cmd[@]}" bash -c "
     # Create necessary directories
     mkdir -p /tmp/overlay-work /tmp/overlay-upper /home/node/.claude
+
+    # Set up .ssh directory with proper permissions
+    mkdir -p /home/node/.ssh
+    chmod 700 /home/node/.ssh
+
+    # Copy SSH key from mounted location
+    if [[ -f /tmp/runpod_key_host ]]; then
+        cp /tmp/runpod_key_host /home/node/.ssh/runpod_key
+        chmod 600 /home/node/.ssh/runpod_key
+    fi
+
+    chown -R node:node /home/node/.ssh
 
     # Function to copy configs with proper merging
     merge_configs() {

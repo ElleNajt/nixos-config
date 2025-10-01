@@ -1,5 +1,9 @@
 FROM node:20
 
+# NOTE: If using Nix on macOS, you must add /nix to Docker Desktop's file sharing settings:
+# Docker Desktop → Settings → Resources → File Sharing → Add /nix
+# This is required for mounting Nix store paths into the container.
+
 ARG TZ
 ENV TZ="$TZ"
 
@@ -93,5 +97,10 @@ RUN if [ "$ENABLE_FIREWALL" = "true" ]; then \
 # Copy Claude Code hook wrapper
 COPY scripts/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
 RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
+
+# Note: runpod.py must be copied to scripts/ directory before build
+# This is done by the build process to avoid COPY path issues
+COPY scripts/runpod.py /usr/local/bin/runpod
+RUN chmod +x /usr/local/bin/runpod
 
 USER node
