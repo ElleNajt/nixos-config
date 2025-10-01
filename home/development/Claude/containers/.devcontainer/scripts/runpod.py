@@ -35,6 +35,8 @@ E.g. I'm only sending over a read-only huggingface token.
 Note that your claude credentials end up in the container when you log in unless you use an interception proxy like the container here does.
  Unclear if you should be concerned about this.
 
+A MUCH BIGGER CONCERN is handling the ssh key:
+
 I'm putting a one off ssh key into the container (i.e. one I made specifically for rundpod)
 # TODO[dsNaSAgBvm]  a better solution would be a similar intercepting proxy.
 

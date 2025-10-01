@@ -280,6 +280,12 @@ docker_cmd+=("$DOCKER_IMAGE")
     # Ensure correct ownership
     chown -R node:node /home/node/.claude 2>/dev/null || true
 
+    # Initialize firewall if enabled
+    if [[ -x /usr/local/bin/init-firewall.sh ]]; then
+        echo '🔥 Initializing firewall...'
+        sudo /usr/local/bin/init-firewall.sh
+    fi
+
     # Start Claude with passed arguments
     claude \"\$@\"
 " -- "${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}"

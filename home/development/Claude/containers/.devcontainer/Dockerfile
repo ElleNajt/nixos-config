@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   gnupg2 \
   gh \
   iptables \
+  iputils-ping \
   ipset \
   iproute2 \
   dnsutils \
@@ -83,16 +84,11 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
-# Copy and set up firewall script
-# I think this is not in my threat model atm, I just want my containers to have nothing sensitive on them.
-ARG ENABLE_FIREWALL=false
 COPY init-firewall.sh /usr/local/bin/
 USER root
-RUN if [ "$ENABLE_FIREWALL" = "true" ]; then \
-  chmod +x /usr/local/bin/init-firewall.sh && \
+RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall; \
-  fi
+  chmod 0440 /etc/sudoers.d/node-firewall
 
 # Copy Claude Code hook wrapper
 COPY scripts/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
