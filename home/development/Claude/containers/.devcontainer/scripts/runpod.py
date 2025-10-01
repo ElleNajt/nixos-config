@@ -48,7 +48,7 @@ so that claude doesn't get tricked into connecting to another machine.
 Claude can make commits, just push from the host.
 
 5. I've turned off the general firewall here. This is slightly yolo. I'd rather just careve out hugging face and the runpod ips.
-# TODO fix this
+# TODO[eGO4AJClWQ] fix this
 
 
 """
@@ -213,26 +213,13 @@ def ensure_host_in_known_hosts(config: Dict[str, str]) -> None:
     host = config["host"]
     port = config["port"]
 
-    # Use writable known_hosts in container, fall back to ~/.ssh/known_hosts
     ssh_dir = Path.home() / ".ssh"
     known_hosts = ssh_dir / "known_hosts"
-
-    # If .ssh is read-only (mounted from host), use a writable location
-    if ssh_dir.exists() and not os.access(ssh_dir, os.W_OK):
-        known_hosts = Path("/tmp/.ssh_known_hosts")
-        # Also check host's known_hosts
-        host_known_hosts = ssh_dir / "known_hosts"
-        if host_known_hosts.exists():
-            with open(host_known_hosts) as f:
-                content = f.read()
-                if f"[{host}]:{port}" in content or f"{host}" in content:
-                    return
 
     # Check if host is already in known_hosts
     if known_hosts.exists():
         with open(known_hosts) as f:
             content = f.read()
-            # Check for host with port notation
             if f"[{host}]:{port}" in content or f"{host}" in content:
                 return
 
@@ -263,25 +250,14 @@ def run_ssh_command(config: Dict[str, str], command: str) -> None:
     ensure_host_in_known_hosts(config)
     ssh_key = Path(config["ssh_key"]).expanduser()
 
-    # Use custom known_hosts if .ssh is read-only
-    ssh_dir = Path.home() / ".ssh"
-    ssh_opts = []
-    if ssh_dir.exists() and not os.access(ssh_dir, os.W_OK):
-        ssh_opts = ["-o", "UserKnownHostsFile=/tmp/.ssh_known_hosts"]
-
-    cmd = (
-        [
-            "ssh",
-            "-i",
-            str(ssh_key),
-            "-p",
-            config["port"],
-        ]
-        + ssh_opts
-        + [
-            f"{config['user']}@{config['host']}",
-        ]
-    )
+    cmd = [
+        "ssh",
+        "-i",
+        str(ssh_key),
+        "-p",
+        config["port"],
+        f"{config['user']}@{config['host']}",
+    ]
 
     # Only add command if it's not empty (for interactive sessions)
     if command.strip():
@@ -303,12 +279,6 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     source_path = validate_source_path(source_dir)
     ssh_key = Path(config["ssh_key"]).expanduser()
 
-    # Use custom known_hosts if .ssh is read-only
-    ssh_dir = Path.home() / ".ssh"
-    ssh_opts = ""
-    if ssh_dir.exists() and not os.access(ssh_dir, os.W_OK):
-        ssh_opts = "-o UserKnownHostsFile=/tmp/.ssh_known_hosts"
-
     print(f"📤 Pushing {source_dir} to RunPod:{dest_dir}")
 
     cmd = [
@@ -324,7 +294,7 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "--exclude=venv/",  # No venv (created on remote)
         "--exclude=.direnv/",  # No direnv
         "-e",
-        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']} {ssh_opts}",
+        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
         f"{shlex.quote(str(source_path))}/",
         f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
     ]
