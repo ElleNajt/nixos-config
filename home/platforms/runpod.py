@@ -10,29 +10,32 @@ The intention for this tool is to add thse to the allowed commands for claude
 
 "Bash(runpod:*)"
 
-This way claude can edit files how it likes locally, and rsync them over and execute code on the runpod machine without human intervention.
+This way claude can edit files how it likes locally, and rsync them over and
+execute code on the runpod machine without human intervention.
 
 Instructions for claude in nixos-config/home/development/Claude/runpod.md
 
 I think this is reasonably safe, as long as nothing too sensitive ends up on the runpod machine, but still:
 
-
 **SECURITY CONSIDERATIONS**
-
 
 1. Everything in the repo gets sent to the cloud machine, and there are no restrictions at all prevent it from being exfiltrated there.
 
-You could use a runpod image that blocks all connections except to desired endpoints,
+You might be able to use a runpod image that blocks all connections except to desired endpoints,
 Or just set things up so that nothing you are worried about ends up in the runpod machine.
 
+E.g. I'm only sending over a read-only huggingface token.
+
 2. If claude can read stuff on your computer, it can move that stuff into the repo and send it over.
-Maybe mitigate with one of the anthropic container, putting a one off ssh key into it, keeping your git credentials on the host machine.
-(Note that your claude credentials end up in the container)
+Maybe mitigate with one of the anthropic containers, putting a one off ssh key into it.
+(Note that your claude credentials end up in the container when you log in unless you use a fancy interception proxy.
+ Unclear if you should be concerned about this.)
 
 I don't trust the claude permissions to prevent it from reading sensitive stuff.
-There are lots of bugs about them, and claude can edit its own permissions file.
+There are lots of issues abouts bugs in it, and claude can edit its own permissions file (!).
 
-3. You should probably make the config file uneditable by claude (e.g. with bwrap --bind-ro or make it read only and owned by root),
+3. You should probably make the .runpod_config.json file uneditable by claude
+(e.g. with bwrap --bind-ro, or read only owned by root, or mounted as read only in the container),
 so that claude doesn't get tricked into connecting to another machine.
 
 
