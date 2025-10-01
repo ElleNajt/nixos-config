@@ -1,8 +1,8 @@
 # RunPod Deployment
 
-When working with projects that need GPU resources, use the `runpod sync` command
-to sync the code over, and then run it with `runpod run`. Avoid editing code remotely, do it
-locally and then push. You can pull the results back with rsync.
+When working with projects that need GPU resources, use the `runpod push` command
+to push the code over, and then run it with `runpod run`. Avoid editing code remotely, do it
+locally and then push. You can pull the results back with `runpod pull`.
 
 ## Setup:
 1. Create a `.runpod_config.json` file in project root with RunPod's **direct TCP connection** details:
@@ -24,7 +24,8 @@ locally and then push. You can pull the results back with rsync.
 
 ## Usage:
 - `runpod config` - Show current configuration
-- `runpod sync` - Sync current directory to RunPod
+- `runpod push [source] [dest]` - Push directory to RunPod
+- `runpod pull [source] [dest]` - Pull directory from RunPod
 - `runpod run "command"` - Execute command on RunPod
 - `runpod` - Open interactive SSH session
 
@@ -36,7 +37,7 @@ locally and then push. You can pull the results back with rsync.
 ## Example Workflow:
 ```bash
 cd ~/code/investigatingOwlalignment
-runpod sync                                    # Upload code
+runpod push                                    # Upload code
 runpod run "cd ~/project && python script.py" # Run script
-rsync -avz user@host:~/project/results/ ./results/  # Download results
+runpod pull ~/project/results/ ./results/      # Download results
 ```

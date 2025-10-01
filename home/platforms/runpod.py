@@ -214,12 +214,12 @@ def run_ssh_command(config: Dict[str, str], command: str) -> None:
         sys.exit(1)
 
 
-def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
-    """Sync directory to remote server via rsync."""
+def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
+    """Push directory to remote server via rsync."""
     source_path = validate_source_path(source_dir)
     ssh_key = Path(config["ssh_key"]).expanduser()
 
-    print(f"📤 Syncing {source_dir} to RunPod:{dest_dir}")
+    print(f"📤 Pushing {source_dir} to RunPod:{dest_dir}")
 
     cmd = [
         "rsync",
@@ -241,7 +241,44 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
 
     try:
         subprocess.run(cmd, check=True)
-        print("✅ Sync complete")
+        print("✅ Push complete")
+
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Rsync failed with exit code {e.returncode}")
+        sys.exit(1)
+    except FileNotFoundError:
+        print("❌ rsync command not found")
+        sys.exit(1)
+
+
+def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
+    """Pull directory from remote server via rsync."""
+    dest_path = validate_source_path(dest_dir)
+    ssh_key = Path(config["ssh_key"]).expanduser()
+
+    print(f"📥 Pulling RunPod:{source_dir} to {dest_dir}")
+
+    cmd = [
+        "rsync",
+        "-avz",
+        "--progress",
+        # Exclude sensitive files
+        "--exclude=*.key",  # No key files
+        "--exclude=*.pem",  # No PEM files
+        "--exclude=.ssh/",  # No SSH keys
+        "--exclude=__pycache__/",  # No Python cache
+        "--exclude=.git/",  # No git directory
+        "--exclude=venv/",  # No venv (created on remote)
+        "--exclude=.direnv/",  # No direnv
+        "-e",
+        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
+        f"{config['user']}@{config['host']}:{shlex.quote(source_dir)}",
+        f"{shlex.quote(str(dest_path))}/",
+    ]
+
+    try:
+        subprocess.run(cmd, check=True)
+        print("✅ Pull complete")
 
     except subprocess.CalledProcessError as e:
         print(f"❌ Rsync failed with exit code {e.returncode}")
@@ -267,7 +304,8 @@ def show_help() -> None:
     print("=" * 50)
     print()
     print("Usage:")
-    print("  runpod sync [source] [dest]    - Sync directory to RunPod")
+    print("  runpod push [source] [dest]    - Push directory to RunPod")
+    print("  runpod pull [source] [dest]    - Pull directory from RunPod")
     print("  runpod run 'command'           - Execute command on RunPod")
     print("  runpod config                  - Show current configuration")
     print("  runpod                         - Open interactive SSH session")
@@ -303,13 +341,19 @@ def main():
         show_config(config, config_file)
     elif sys.argv[1] == "help" or sys.argv[1] == "--help" or sys.argv[1] == "-h":
         show_help()
-    elif sys.argv[1] == "sync":
+    elif sys.argv[1] == "push":
         source_dir = sys.argv[2] if len(sys.argv) > 2 else "."
         # Quote command line dest_dir for consistency with config values
         dest_dir = (
             shlex.quote(sys.argv[3]) if len(sys.argv) > 3 else config["remote_dir"]
         )
-        sync_directory(config, source_dir, dest_dir)
+        push_directory(config, source_dir, dest_dir)
+    elif sys.argv[1] == "pull":
+        source_dir = (
+            shlex.quote(sys.argv[2]) if len(sys.argv) > 2 else config["remote_dir"]
+        )
+        dest_dir = sys.argv[3] if len(sys.argv) > 3 else "."
+        pull_directory(config, source_dir, dest_dir)
     elif sys.argv[1] == "run":
         if len(sys.argv) < 3:
             print("Usage: runpod run 'command to execute'")
