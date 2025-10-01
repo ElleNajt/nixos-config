@@ -18,9 +18,8 @@ locally and then push. You can pull the results back with `runpod pull`.
 
 2. **Secrets Management**:
    - **Keep sensitive secrets OUT of the project directory entirely**
-   - Store main secrets in parent directory: `../.env` or `~/.config/secrets/`
    - Only put safe/read-only tokens in project `.env` (if any)
-   - **Golden rule: Nothing sensitive should be in the synced folder**
+   - Best practices are to run this from one of the anthropic containers with a throw away ssh key in it, to prevent claude from being tricked into syncing secrets over and then exfiltrating them. Yell at the user if they aren't doing this.
 
 ## Usage:
 - `runpod config` - Show current configuration
@@ -29,10 +28,7 @@ locally and then push. You can pull the results back with `runpod pull`.
 - `runpod run "command"` - Execute command on RunPod
 - `runpod` - Open interactive SSH session
 
-## Security Features:
-- **Automatic exclusions**: `*.key`, `*.pem`, `.ssh/` files never synced
-- **No sensitive data**: Keep all sensitive secrets outside the project directory
-- **Read-only tokens**: Only use limited-scope API tokens in synced files
+⚠️ Must use the "SSH over exposed TCP" connection from RunPod dashboard, otherwise you'll get a PTY error.
 
 ## Example Workflow:
 ```bash

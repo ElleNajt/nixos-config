@@ -2,35 +2,39 @@
 """
 RunPod Deployment Tool
 
-
 Tool for syncing code to RunPod and running commands remotely.
 
 ⚠️ Must use the "SSH over exposed TCP" connection from RunPod dashboard, otherwise you'll get a PTY error.
 
 The intention for this tool is to add thse to the allowed commands for claude
 
-      "Bash(runpod run:*)",
-      "Bash(runpod sync:*)"
+"Bash(runpod:*)"
 
-So claude can edit files how it likes locally, and rsync them over and execute code on the runpod machine without human intervention.
+This way claude can edit files how it likes locally, and rsync them over and execute code on the runpod machine without human intervention.
+
+Instructions for claude in nixos-config/home/development/Claude/runpod.md
 
 I think this is reasonably safe, as long as nothing too sensitive ends up on the runpod machine, but still:
 
-**SECURITY WARNING**
 
-1. You should probably make the config file uneditable by claude (e.g. with bwrap), so that it doesn't get tricked into connecting to another machine.
-Or yolo.
+**SECURITY CONSIDERATIONS**
 
-2. Everything in the repo gets sent to the virtual machine, and there are no restrictions at all prevent it from being exfiltrated there.
 
-Maybe use a runpod image that blocks all connections except to desired endpoints? Or just set things up so that nothing
+1. Everything in the repo gets sent to the cloud machine, and there are no restrictions at all prevent it from being exfiltrated there.
 
-3. If claude can read stuff on your computer, it can move that stuff into the repo and send it over.
-Maybe mitigate with a container or a vm, putting a one off ssh key into it.
+You could use a runpod image that blocks all connections except to desired endpoints,
+Or just set things up so that nothing you are worried about ends up in the runpod machine.
 
-NB that your claude oauth keys end up on the VM, unless you do intercepting proxy shenangigans.
+2. If claude can read stuff on your computer, it can move that stuff into the repo and send it over.
+Maybe mitigate with one of the anthropic container, putting a one off ssh key into it, keeping your git credentials on the host machine.
+(Note that your claude credentials end up in the container)
 
-I don't trust the claude permissions to prevent it from reading sensitive stuff. There are lots of bugs about them, and claude can edit its own permissions file.
+I don't trust the claude permissions to prevent it from reading sensitive stuff.
+There are lots of bugs about them, and claude can edit its own permissions file.
+
+3. You should probably make the config file uneditable by claude (e.g. with bwrap --bind-ro or make it read only and owned by root),
+so that claude doesn't get tricked into connecting to another machine.
+
 
 """
 
