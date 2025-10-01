@@ -231,6 +231,8 @@ def sync_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "--exclude=.ssh/",  # No SSH keys
         "--exclude=__pycache__/",  # No Python cache
         "--exclude=.git/",  # No git directory
+        "--exclude=venv/",  # No venv (created on remote)
+        "--exclude=.direnv/",  # No direnv
         "-e",
         f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
         f"{shlex.quote(str(source_path))}/",
