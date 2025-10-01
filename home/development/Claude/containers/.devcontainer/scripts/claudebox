@@ -22,10 +22,15 @@ TEMP_CREDS=""
 PROXY_PID=""
 MAX_ATTEMPTS=30
 ATTEMPT=0
+RUN_BASH=false
 while [[ $# -gt 0 ]]; do
     case $1 in
     --mount-claude-md)
         MOUNT_CLAUDE_MD=true
+        shift
+        ;;
+    --bash)
+        RUN_BASH=true
         shift
         ;;
     --help)
@@ -42,6 +47,7 @@ USAGE:
 
 OPTIONS:
     --mount-claude-md Mount your real CLAUDE.md file (default: none)
+    --bash            Run bash instead of claude
     --help            Show this help
 
 WORKSPACE:
@@ -217,6 +223,9 @@ fi
 
 docker_cmd+=("$DOCKER_IMAGE")
 
+# Pass RUN_BASH flag to container
+export RUN_BASH
+
 # Run container with setup script
 "${docker_cmd[@]}" bash -c "
     # Create necessary directories
@@ -286,6 +295,10 @@ docker_cmd+=("$DOCKER_IMAGE")
         sudo /usr/local/bin/init-firewall.sh
     fi
 
-    # Start Claude with passed arguments
-    claude \"\$@\"
+    # Start Claude or bash depending on flag
+    if [[ \"$RUN_BASH\" == \"true\" ]]; then
+        exec bash \"\$@\"
+    else
+        claude \"\$@\"
+    fi
 " -- "${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}"
