@@ -86,6 +86,10 @@
     ${builtins.readFile ../home/platforms/runpod.py}
   '')
 
+  (pkgs.writeScriptBin "claudebox" ''
+    ${builtins.readFile ../home/development/Claude/containers/.devcontainer/scripts/claudebox}
+  '')
+
   # overtone
   clojure
   babashka

@@ -1,0 +1,252 @@
+#!/bin/bash
+set -euo pipefail
+
+DOCKER_IMAGE="claude-code-devcontainer"
+CONTAINER_NAME="claude-code-auth-$$-$(date +%s)"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEVCONTAINER_DIR="$(dirname "$SCRIPT_DIR")"
+PROXY_SCRIPT="$SCRIPT_DIR/claude-auth-proxy.py"
+
+# Get the current working directory to determine project-specific config
+CURRENT_DIR="$(pwd)"
+# Convert full path to project name by removing home prefix and replacing / with -
+# e.g., /Users/elle/code/project/subdir -> code-project-subdir
+PROJECT_NAME="${CURRENT_DIR#$HOME/}" # Remove home directory prefix
+PROJECT_NAME="${PROJECT_NAME//\//-}" # Replace all / with -
+
+# Initialize variables
+CLAUDE_ARGS=()
+MOUNT_CLAUDE_MD=false
+TEMP_CREDS=""
+PROXY_PID=""
+MAX_ATTEMPTS=30
+ATTEMPT=0
+while [[ $# -gt 0 ]]; do
+    case $1 in
+    --mount-claude-md)
+        MOUNT_CLAUDE_MD=true
+        shift
+        ;;
+    --help)
+        cat <<'EOF'
+Run Claude Code in a Docker container with credential isolation.
+
+Real API credentials stay on the host and are injected via proxy.
+
+USAGE:
+    Run this script from your project directory:
+
+    cd /path/to/your/project
+    claudebox [OPTIONS] [CLAUDE_OPTIONS]
+
+OPTIONS:
+    --mount-claude-md Mount your real CLAUDE.md file (default: none)
+    --help            Show this help
+
+WORKSPACE:
+    The current directory becomes /workspace in the container.
+    Claude Code will have access to all files in the current directory.
+
+EXAMPLES:
+    cd ~/my-project && claudebox
+    cd ~/my-project && claudebox --mount-claude-md -p "hello world"
+    cd ~/my-project && claudebox --continue
+EOF
+        exit 0
+        ;;
+    *)
+        # Pass unknown arguments to Claude
+        CLAUDE_ARGS+=("$1")
+        shift
+        ;;
+    esac
+done
+
+docker info >/dev/null 2>&1 || {
+    echo "Docker not running"
+    exit 1
+}
+
+# Build image if needed
+if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
+    [[ "$VERBOSE" == "true" ]] && echo "🔨 Building devcontainer image..."
+    docker build -t "$DOCKER_IMAGE" -f "$DEVCONTAINER_DIR/Dockerfile" "$DEVCONTAINER_DIR" || exit 1
+fi
+
+# Find an available port
+find_available_port() {
+    local port=$1
+    local max_port=65535
+    for ((i = 0; i <= $((max_port - port)); i++)); do
+        if ! nc -z localhost $((port + i)) 2>/dev/null; then
+            echo $((port + i))
+            return 0
+        fi
+    done
+    echo "❌ No available ports found in range $port-$max_port" >&2
+    return 1
+}
+
+# Check if proxy is already running
+PROXY_PID=$(pgrep -f "claude-auth-proxy.py" || true)
+
+if [[ -n "$PROXY_PID" ]]; then
+    # Proxy is already running, get its port using lsof
+    ACTUAL_PORT=$(lsof -P -n -p "$PROXY_PID" -a -i TCP -s TCP:LISTEN 2>/dev/null |
+        grep -v "^COMMAND" | awk '{print $9}' | cut -d: -f2 | head -1)
+
+    if [[ -n "$ACTUAL_PORT" ]]; then
+        echo "✓ Using existing proxy on port $ACTUAL_PORT"
+    else
+        echo "❌ Found proxy process but couldn't determine port"
+        exit 1
+    fi
+else
+    # No proxy running, start a new one
+    # Find available port in ephemeral range (58080-65535) to avoid conflicts with registered services
+    ACTUAL_PORT=$(find_available_port 58080) || exit 1
+
+    echo "🚀 Starting authentication proxy on port $ACTUAL_PORT"
+
+    # Start proxy in background on the available port
+    python3 "$PROXY_SCRIPT" --port "$ACTUAL_PORT" &
+    PROXY_PID=$!
+
+    # Health check polling - wait for proxy to be ready
+    ATTEMPT=0
+    while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
+        if ! ps -p $PROXY_PID >/dev/null 2>&1; then
+            echo "❌ Proxy process died unexpectedly"
+            exit 1
+        fi
+
+        # Try to connect to the proxy port
+        if nc -z localhost "$ACTUAL_PORT" 2>/dev/null; then
+            echo "✅ Proxy ready"
+            break
+        fi
+
+        ATTEMPT=$((ATTEMPT + 1))
+        if [[ $ATTEMPT -eq $MAX_ATTEMPTS ]]; then
+            echo "❌ Proxy failed to start after ${MAX_ATTEMPTS} attempts"
+            kill $PROXY_PID 2>/dev/null || true
+            exit 1
+        fi
+
+        sleep 0.2
+    done
+fi
+
+# Cleanup on exit
+cleanup() {
+    local exit_code=$?
+
+    # Remove container (but NOT the proxy - it's shared!)
+    docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
+    # Clean up temporary files
+    rm -f "$TEMP_CREDS" 2>/dev/null || true
+
+    exit $exit_code
+}
+trap cleanup INT TERM EXIT
+
+# Create dummy credentials (pipe directly, never write real creds to disk)
+TEMP_CREDS=$(mktemp) || {
+    echo "Failed to create temporary credentials file" >&2
+    exit 1
+}
+
+# Try to get credentials and replace with dummy tokens in one operation
+if ! "$SCRIPT_DIR/get-claude-credentials.sh" 2>/dev/null | jq '
+        .claudeAiOauth.accessToken = "sk-ant-oat01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA" |
+        .claudeAiOauth.refreshToken = "sk-ant-ort01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA"
+    ' >"$TEMP_CREDS" 2>/dev/null; then
+    # Failed to get credentials or process them, clean up
+    rm -f "$TEMP_CREDS"
+    TEMP_CREDS=""
+fi
+
+# Build docker command
+docker_cmd=(
+    docker run --rm --name "$CONTAINER_NAME" -it
+    -v "$(pwd):/workspace" -w /workspace
+    -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
+    --privileged # Needed for fuse-overlayfs
+)
+
+# Mount the general .claude directory as read-only lower layer
+if [[ -d "$HOME/.claude" ]]; then
+    docker_cmd+=(-v "$HOME/.claude:/tmp/claude-general:ro")
+fi
+
+# Check if project-specific config exists and mount it
+PROJECT_CONFIG_DIR="$HOME/.claude/projects/$PROJECT_NAME"
+if [[ -d "$PROJECT_CONFIG_DIR" ]]; then
+    echo "📁 Found project-specific config: $PROJECT_NAME"
+    docker_cmd+=(-v "$PROJECT_CONFIG_DIR:/tmp/claude-project:ro")
+else
+    echo "📁 No project-specific config found for: $PROJECT_NAME"
+fi
+
+# Mount dummy credentials separately
+[[ -n "$TEMP_CREDS" ]] && docker_cmd+=(-v "$TEMP_CREDS:/tmp/credentials.json:ro")
+[[ "$MOUNT_CLAUDE_MD" == true && -f "$HOME/.claude/CLAUDE.md" ]] && docker_cmd+=(-v "$HOME/.claude/CLAUDE.md:/tmp/host-claude-md:ro")
+
+docker_cmd+=("$DOCKER_IMAGE")
+
+# Run container with setup script
+"${docker_cmd[@]}" bash -c "
+    # Create necessary directories
+    mkdir -p /tmp/overlay-work /tmp/overlay-upper /home/node/.claude
+
+    # Function to copy configs with proper merging
+    merge_configs() {
+        # Copy general config first if it exists
+        if [[ -d /tmp/claude-general ]]; then
+            cp -r /tmp/claude-general/* /home/node/.claude/ 2>/dev/null || true
+        fi
+
+        # Overlay project-specific config if it exists (overwriting general)
+        if [[ -d /tmp/claude-project ]]; then
+            cp -r /tmp/claude-project/* /home/node/.claude/ 2>/dev/null || true
+        fi
+    }
+
+    # Try to use fuse-overlayfs for union filesystem, fall back to copying
+    if [[ -d /tmp/claude-project ]] && [[ -d /tmp/claude-general ]]; then
+        # Both configs exist - try union filesystem first
+        if command -v fuse-overlayfs &> /dev/null; then
+            # Try to create union filesystem
+            if fuse-overlayfs -o lowerdir=/tmp/claude-general,upperdir=/tmp/claude-project,workdir=/tmp/overlay-work /home/node/.claude 2>/dev/null; then
+                echo '✓ Using union filesystem for configs'
+            else
+                # Fallback to copying if overlayfs fails
+                echo '✓ Using merged configs (copy method)'
+                merge_configs
+            fi
+        else
+            # No fuse-overlayfs available, use copy method
+            merge_configs
+        fi
+    else
+        # Only one or no configs exist - simple copy
+        merge_configs
+    fi
+
+    # Copy credentials if provided (overwriting any from the mounted directories)
+    [[ -f /tmp/credentials.json ]] && cp /tmp/credentials.json /home/node/.claude/.credentials.json
+
+    # Copy host CLAUDE.md if provided (highest priority)
+    [[ -f /tmp/host-claude-md ]] && cp /tmp/host-claude-md /home/node/.claude/CLAUDE.md
+
+    # Create minimal config to skip setup screen
+    echo '{\"hasCompletedOnboarding\": true}' > /home/node/.claude.json
+
+    # Ensure correct ownership
+    chown -R node:node /home/node/.claude 2>/dev/null || true
+
+    # Start Claude with passed arguments
+    claude \"\$@\"
+" -- "${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}"

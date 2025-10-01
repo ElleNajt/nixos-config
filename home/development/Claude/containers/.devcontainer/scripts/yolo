@@ -1,0 +1,10 @@
+claudebox --dangerously-skip-permissions
+
+# expect -c "
+#     spawn bash -c \"claudebox --dangerously-skip-permissions; exec bash\"
+#     expect \"No, exit\"
+#     send \"\\033\[B\"
+#     sleep 0.1
+#     send \"\\r\"
+#     interact
+# "
