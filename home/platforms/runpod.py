@@ -18,27 +18,19 @@ I think this is reasonably safe, as long as nothing too sensitive ends up on the
 
 **SECURITY WARNING**
 
-.env is sent over with runpod sync.
+1. You should probably make the config file uneditable by claude (e.g. with bwrap), so that it doesn't get tricked into connecting to another machine.
+Or yolo.
 
-If you let claude runpod run command without oversight, then those secrets could
-get exfiltrated. (E.g. claude code fetches information and gets prompt injected
-to share its secrets; it can only do code execution on the runpod pod via runpod
-run, but if it can it could exfiltrate anything there.)
+2. Everything in the repo gets sent to the virtual machine, and there are no restrictions at all prevent it from being exfiltrated there.
 
-Currently I'm okay with this, because the only secret I need on the remote
-machine is a hugging face token, and hugging face token I'm providing is read
-only, so I think the cost of it getting exfiltrated is low.
+Maybe use a runpod image that blocks all connections except to desired endpoints? Or just set things up so that nothing
 
-It may also make sense to have the iptables block traffic to anything that isn't
-hugging face, and rely on ACL from the read only key to prevent writing secrets to huggingface.
+3. If claude can read stuff on your computer, it can move that stuff into the repo and send it over.
+Maybe mitigate with a container or a vm, putting a one off ssh key into it.
 
-The *best* way to solve the exfiltration issue would be to run an intercepting proxy sidecar in
-runpod, and intercept all network traffic through it, and inject the secrets
-into the correct outbound requests. That way nothing private ends up on the
-remote machine, so there's no exfiltration risk at all.
+NB that your claude oauth keys end up on the VM, unless you do intercepting proxy shenangigans.
 
-(Runpod does support secret management, but they get injected into the
-environment and could be exfiltrated in the same way, so it is not useful for this.)
+I don't trust the claude permissions to prevent it from reading sensitive stuff. There are lots of bugs about them, and claude can edit its own permissions file.
 
 """
 
