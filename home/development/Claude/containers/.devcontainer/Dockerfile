@@ -66,10 +66,6 @@ ENV PATH=$PATH:/usr/local/share/npm-global/bin
 # Set the default shell to zsh rather than sh
 ENV SHELL=/bin/zsh
 
-# Set the default editor and visual
-ENV EDITOR nano
-ENV VISUAL nano
-
 # Default powerline10k theme
 ARG ZSH_IN_DOCKER_VERSION=1.2.0
 RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v${ZSH_IN_DOCKER_VERSION}/zsh-in-docker.sh)" -- \
@@ -83,11 +79,19 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
-
 # Copy and set up firewall script
+# I think this is not in my threat model atm, I just want my containers to have nothing sensitive on them.
+ARG ENABLE_FIREWALL=false
 COPY init-firewall.sh /usr/local/bin/
 USER root
-RUN chmod +x /usr/local/bin/init-firewall.sh && \
+RUN if [ "$ENABLE_FIREWALL" = "true" ]; then \
+  chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
+  chmod 0440 /etc/sudoers.d/node-firewall; \
+  fi
+
+# Copy Claude Code hook wrapper
+COPY scripts/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
+RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
+
 USER node

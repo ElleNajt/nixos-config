@@ -194,6 +194,9 @@ fi
 [[ -n "$TEMP_CREDS" ]] && docker_cmd+=(-v "$TEMP_CREDS:/tmp/credentials.json:ro")
 [[ "$MOUNT_CLAUDE_MD" == true && -f "$HOME/.claude/CLAUDE.md" ]] && docker_cmd+=(-v "$HOME/.claude/CLAUDE.md:/tmp/host-claude-md:ro")
 
+# Mount .runpod_config.json as read-only if it exists in current directory
+[[ -f "$(pwd)/.runpod_config.json" ]] && docker_cmd+=(-v "$(pwd)/.runpod_config.json:/workspace/.runpod_config.json:ro")
+
 docker_cmd+=("$DOCKER_IMAGE")
 
 # Run container with setup script
