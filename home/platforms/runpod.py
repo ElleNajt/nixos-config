@@ -19,6 +19,8 @@ I think this is reasonably safe, as long as nothing too sensitive ends up on the
 
 **SECURITY CONSIDERATIONS**
 
+I am not a security expert! I'm just having fun learning about container security.
+
 1. Everything in the repo gets sent to the cloud machine, and there are no restrictions at all prevent it from being exfiltrated there.
 
 You might be able to use a runpod image that blocks all connections except to desired endpoints,
@@ -37,6 +39,9 @@ There are lots of issues abouts bugs in it, and claude can edit its own permissi
 3. You should probably make the .runpod_config.json file uneditable by claude
 (e.g. with bwrap --bind-ro, or read only owned by root, or mounted as read only in the container),
 so that claude doesn't get tricked into connecting to another machine.
+
+4. Preference for running in a container over a VM so you can leverage the layered file system, and keep the git crednetials on the home machine.
+Claude can make commits, just push from the host.
 
 
 """
