@@ -63,6 +63,20 @@ while read -r cidr; do
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
+# Parse RunPod IP from .runpod_config.json if it exists
+if [ -f /workspace/.runpod_config.json ]; then
+    echo "Found .runpod_config.json, extracting RunPod IP..."
+    RUNPOD_IP=$(jq -r '.host // empty' /workspace/.runpod_config.json)
+    if [ -n "$RUNPOD_IP" ]; then
+        if [[ "$RUNPOD_IP" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "Adding RunPod IP: $RUNPOD_IP"
+            ipset add allowed-domains "$RUNPOD_IP"
+        else
+            echo "WARNING: Invalid RunPod IP in config: $RUNPOD_IP"
+        fi
+    fi
+fi
+
 # Resolve and add other allowed domains
 for domain in \
     "registry.npmjs.org" \
@@ -70,7 +84,9 @@ for domain in \
     "api.goodfire.ai" \
     "sentry.io" \
     "statsig.anthropic.com" \
-    "statsig.com"; do
+    "statsig.com" \
+    "huggingface.co" \
+    "cdn-lfs.huggingface.co"; do
     echo "Resolving $domain..."
     ips=$(dig +short A "$domain")
     if [ -z "$ips" ]; then
