@@ -12,7 +12,7 @@ locally and then push. You can pull the results back with `runpod pull`.
      "host": "xxx.xxx.xxx.xxx",
      "port": "xxxxx",
      "ssh_key": "~/.ssh/id_ed25519",
-     "remote_dir": "~/project_name/"
+     "remote_dir": "/workspace/project_name/"
    }
    ```
 

@@ -313,7 +313,7 @@ def show_help() -> None:
     print('    "host": "xxx.xxx.xxx.xxx",')
     print('    "port": "xxxxx",')
     print('    "ssh_key": "~/.ssh/id_ed25519",')
-    print('    "remote_dir": "~/your-project/"')
+    print('    "remote_dir": "/workspace/your-project/"')
     print("  }")
 
 
