@@ -6,7 +6,7 @@ Run Claude Code in Docker containers such that your API credentials stay on your
 
 ```bash
 # Add to PATH
-export PATH="$PATH:/path/to/claude-code/.devcontainer/scripts"
+export PATH="$PATH:/path/to/claude-code/scripts"
 
 # Run from your project directory
 cd /path/to/your/project

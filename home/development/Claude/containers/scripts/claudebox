@@ -5,7 +5,7 @@ DOCKER_IMAGE="claude-code-devcontainer"
 CONTAINER_NAME="claude-code-auth-$$-$(date +%s)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEVCONTAINER_DIR="$(dirname "$SCRIPT_DIR")"
+CONTAINER_DIR="$(dirname "$SCRIPT_DIR")"
 PROXY_SCRIPT="$SCRIPT_DIR/claude-auth-proxy.py"
 
 # Get the current working directory to determine project-specific config
@@ -77,7 +77,7 @@ docker info >/dev/null 2>&1 || {
 # Build image if needed
 if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     [[ "$VERBOSE" == "true" ]] && echo "🔨 Building devcontainer image..."
-    docker build -t "$DOCKER_IMAGE" -f "$DEVCONTAINER_DIR/Dockerfile" "$DEVCONTAINER_DIR" || exit 1
+    docker build -t "$DOCKER_IMAGE" -f "$CONTAINER_DIR/Dockerfile" "$CONTAINER_DIR" || exit 1
 fi
 
 # Find an available port
