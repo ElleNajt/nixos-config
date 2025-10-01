@@ -43,6 +43,8 @@ so that claude doesn't get tricked into connecting to another machine.
 4. Preference for running in a container over a VM so you can leverage the layered file system, and keep the git crednetials on the home machine.
 Claude can make commits, just push from the host.
 
+This is my docker container configuration: /Users/elle/code/nixos-config/home/development/Claude/containers/
+
 
 """
 
