@@ -14,18 +14,24 @@ DUMMY_TOKENS = [
     "sk-ant-oat01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA"
 ]
 
+VERBOSE_LOGGING = False
+
 
 class ClaudeAuthProxyHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
-        pass
+        if VERBOSE_LOGGING:
+            sys.stderr.write(
+                "%s - - [%s] %s\n"
+                % (self.address_string(), self.log_date_time_string(), format % args)
+            )
 
     def get_real_oauth_token(self):
         try:
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            cred_script = os.path.join(script_dir, "get-claude-credentials.sh")
-
             result = subprocess.run(
-                [cred_script], capture_output=True, text=True, timeout=10
+                ["get-claude-credentials.sh"],
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
 
             if result.returncode == 0 and result.stdout:
@@ -155,12 +161,20 @@ class ClaudeAuthProxyHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    global VERBOSE_LOGGING
     parser = argparse.ArgumentParser(description="Claude Authentication Proxy")
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
+
+    VERBOSE_LOGGING = args.verbose
 
     try:
         server = HTTPServer(("0.0.0.0", args.port), ClaudeAuthProxyHandler)
+        if VERBOSE_LOGGING:
+            print(
+                f"Proxy listening on port {args.port} (verbose mode)", file=sys.stderr
+            )
         server.serve_forever()
     except KeyboardInterrupt:
         server.shutdown()
