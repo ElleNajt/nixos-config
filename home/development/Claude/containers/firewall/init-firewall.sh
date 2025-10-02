@@ -125,22 +125,21 @@ fi
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 
-# Set default policies to DROP first
-iptables -P INPUT DROP
-iptables -P FORWARD DROP
-iptables -P OUTPUT DROP
 # Allow Docker Desktop's host.docker.internal network if detected
 if [ -n "$DOCKER_HOST_NETWORK" ] && [ "$DOCKER_HOST_NETWORK" != "$HOST_NETWORK" ]; then
     iptables -A INPUT -s "$DOCKER_HOST_NETWORK" -j ACCEPT
     iptables -A OUTPUT -d "$DOCKER_HOST_NETWORK" -j ACCEPT
 fi
 
-# First allow established connections for already approved traffic
-iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+# Allow only NEW connections to allowed domains, and related/established connections
+iptables -A OUTPUT -m state --state NEW -m set --match-set allowed-domains dst -j ACCEPT
 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
-# Then allow only specific outbound traffic to allowed domains
-iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
+# Set default policies to DROP
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT DROP
 
 echo "Firewall configuration complete"
 echo "Verifying firewall rules..."
