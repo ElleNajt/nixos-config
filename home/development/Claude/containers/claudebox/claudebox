@@ -4,9 +4,9 @@ set -euo pipefail
 DOCKER_IMAGE="claude-code-devcontainer"
 CONTAINER_NAME="claude-code-auth-$$-$(date +%s)"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONTAINER_DIR="$(dirname "$SCRIPT_DIR")"
-PROXY_SCRIPT="$SCRIPT_DIR/claude-auth-proxy.py"
+CLAUDEBOX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONTAINER_DIR="$(dirname "$CLAUDEBOX_DIR")"
+PROXY_SCRIPT="$CONTAINER_DIR/proxies/claude-auth-proxy.py"
 
 # Get the current working directory to determine project-specific config
 CURRENT_DIR="$(pwd)"
@@ -23,6 +23,8 @@ PROXY_PID=""
 MAX_ATTEMPTS=30
 ATTEMPT=0
 RUN_BASH=false
+VERBOSE=false
+ENABLE_FIREWALL=false
 while [[ $# -gt 0 ]]; do
     case $1 in
     --mount-claude-md)
@@ -31,6 +33,14 @@ while [[ $# -gt 0 ]]; do
         ;;
     --bash)
         RUN_BASH=true
+        shift
+        ;;
+    --verbose)
+        VERBOSE=true
+        shift
+        ;;
+    --firewall)
+        ENABLE_FIREWALL=true
         shift
         ;;
     --help)
@@ -48,6 +58,8 @@ USAGE:
 OPTIONS:
     --mount-claude-md Mount your real CLAUDE.md file (default: none)
     --bash            Run bash instead of claude
+    --verbose         Enable verbose proxy logging
+    --firewall        Enable firewall (blocks most network access)
     --help            Show this help
 
 WORKSPACE:
@@ -116,7 +128,21 @@ else
     echo "🚀 Starting authentication proxy on port $ACTUAL_PORT"
 
     # Start proxy in background on the available port
-    python3 "$PROXY_SCRIPT" --port "$ACTUAL_PORT" &
+    # Use installed version from PATH if available, otherwise use local
+    PROXY_ARGS="--port $ACTUAL_PORT"
+    if [[ "$VERBOSE" == "true" ]]; then
+        PROXY_ARGS="$PROXY_ARGS --verbose"
+        PROXY_LOG="/tmp/claudebox_proxy.log"
+        echo "📝 Proxy logs: $PROXY_LOG"
+    else
+        PROXY_LOG="/dev/null"
+    fi
+
+    if command -v claude-auth-proxy.py &>/dev/null; then
+        claude-auth-proxy.py $PROXY_ARGS >"$PROXY_LOG" 2>&1 &
+    else
+        python3 "$PROXY_SCRIPT" $PROXY_ARGS >"$PROXY_LOG" 2>&1 &
+    fi
     PROXY_PID=$!
 
     # Health check polling - wait for proxy to be ready
@@ -223,8 +249,9 @@ fi
 
 docker_cmd+=("$DOCKER_IMAGE")
 
-# Pass RUN_BASH flag to container
+# Pass flags to container
 export RUN_BASH
+export ENABLE_FIREWALL
 
 # Run container with setup script
 "${docker_cmd[@]}" bash -c "
@@ -290,7 +317,7 @@ export RUN_BASH
     chown -R node:node /home/node/.claude 2>/dev/null || true
 
     # Initialize firewall if enabled
-    if [[ -x /usr/local/bin/init-firewall.sh ]]; then
+    if [[ \"$ENABLE_FIREWALL\" == \"true\" ]] && [[ -x /usr/local/bin/init-firewall.sh ]]; then
         echo '🔥 Initializing firewall...'
         sudo /usr/local/bin/init-firewall.sh
     fi
