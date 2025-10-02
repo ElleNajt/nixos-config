@@ -114,6 +114,13 @@ fi
 HOST_NETWORK=$(echo "$HOST_IP" | sed "s/\.[0-9]*$/.0\/24/")
 echo "Host network detected as: $HOST_NETWORK"
 
+# Also resolve host.docker.internal if it exists (for Docker Desktop)
+DOCKER_HOST_IP=$(dig +short host.docker.internal | head -1)
+if [ -n "$DOCKER_HOST_IP" ]; then
+    DOCKER_HOST_NETWORK=$(echo "$DOCKER_HOST_IP" | sed "s/\.[0-9]*$/.0\/24/")
+    echo "Docker host network detected as: $DOCKER_HOST_NETWORK"
+fi
+
 # Set up remaining iptables rules
 iptables -A INPUT -s "$HOST_NETWORK" -j ACCEPT
 iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
@@ -122,6 +129,11 @@ iptables -A OUTPUT -d "$HOST_NETWORK" -j ACCEPT
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
+# Allow Docker Desktop's host.docker.internal network if detected
+if [ -n "$DOCKER_HOST_NETWORK" ] && [ "$DOCKER_HOST_NETWORK" != "$HOST_NETWORK" ]; then
+    iptables -A INPUT -s "$DOCKER_HOST_NETWORK" -j ACCEPT
+    iptables -A OUTPUT -d "$DOCKER_HOST_NETWORK" -j ACCEPT
+fi
 
 # First allow established connections for already approved traffic
 iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
