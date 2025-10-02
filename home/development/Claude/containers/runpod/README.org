@@ -23,12 +23,6 @@ Generate a dedicated SSH key just for RunPod (don't reuse your main keys):
 ssh-keygen -t ed25519 -f ~/.ssh/runpod_key -C "runpod-throwaway"
 #+end_src
 
-Add the public key to your RunPod instance:
-
-#+begin_src bash
-ssh-copy-id -i ~/.ssh/runpod_key.pub -p <PORT> root@<HOST>
-#+end_src
-
 ** 3. Create .runpod_config.json
 
 Create =.runpod_config.json= in your project root (or git repository root):
