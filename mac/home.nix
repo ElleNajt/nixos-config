@@ -80,7 +80,7 @@
   nodejs
   nodePackages.npm
 
-  ] ++ (import ../home/development/Claude/containers/scripts.nix { inherit pkgs; }) ++ [
+  ] ++ (import ../home/development/Claude/containers/containers.nix { inherit pkgs; }) ++ [
 
   # overtone
   clojure

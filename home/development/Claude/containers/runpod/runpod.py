@@ -1,58 +1,6 @@
 #!/usr/bin/env python3
 """
 RunPod Deployment Tool
-
-Tool for syncing code to RunPod and running commands remotely.
-
-⚠️ Must use the "SSH over exposed TCP" connection from RunPod dashboard, otherwise you'll get a PTY error.
-
-The intention for this tool is to add thse to the allowed commands for claude
-
-"Bash(runpod:*)"
-
-This way claude can edit files how it likes locally, and rsync them over and
-execute code on the runpod machine without human intervention.
-
-Instructions for claude in nixos-config/home/development/Claude/runpod.md
-
-I think this is reasonably safe, as long as nothing too sensitive ends up on the runpod machine, but still:
-
-**SECURITY CONSIDERATIONS**
-
-I am not a security expert! I'm just having fun learning about container security.
-
-I'm running this inside of the container that is set up by this folder. I do this because:
-
-1. Everything in the repo gets sent to the cloud machine, and there are no restrictions at all prevent it from being exfiltrated there.
-
-You might be able to use a runpod image that blocks all connections except to desired endpoints,
-Or just set things up so that nothing you are worried about ends up in the runpod machine, which is what the container facilitates.
-
-E.g. I'm only sending over a read-only huggingface token.
-
-2. If claude can read stuff on your computer, it can move that stuff into the repo and send it over.
-
-Note that your claude credentials end up in the container when you log in unless you use an interception proxy like the container here does.
- Unclear if you should be concerned about this.
-
-A MUCH BIGGER CONCERN is handling the ssh key:
-
-I'm putting a one off ssh key into the container (i.e. one I made specifically for rundpod)
-# TODO[dsNaSAgBvm]  a better solution would be a similar intercepting proxy.
-
-I don't trust the claude permissions to prevent it from reading sensitive stuff.
-There are lots of issues abouts bugs in it, and claude can edit its own permissions file (!). So it should live
-
-3. You should probably make the .runpod_config.json file uneditable by claude, like this container does,
-so that claude doesn't get tricked into connecting to another machine.
-
-4. Preference for running in a container over a VM so you can leverage the layered file system, and keep the git crednetials on the home machine.
-Claude can make commits, just push from the host.
-
-5. I've turned off the general firewall here. This is slightly yolo. I'd rather just careve out hugging face and the runpod ips.
-# TODO[eGO4AJClWQ] fix this
-
-
 """
 
 import json

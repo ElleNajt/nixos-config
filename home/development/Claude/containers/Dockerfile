@@ -84,19 +84,18 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
 # Install Claude
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 
-COPY init-firewall.sh /usr/local/bin/
+COPY firewall/init-firewall.sh /usr/local/bin/
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
 
 # Copy Claude Code hook wrapper
-COPY scripts/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
+COPY emacs/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
 RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
 
-# Note: runpod.py must be copied to scripts/ directory before build
-# This is done by the build process to avoid COPY path issues
-COPY scripts/runpod.py /usr/local/bin/runpod
+# Copy runpod script
+COPY runpod/runpod.py /usr/local/bin/runpod
 RUN chmod +x /usr/local/bin/runpod
 
 USER node

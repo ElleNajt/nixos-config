@@ -165,7 +165,7 @@ TEMP_CREDS=$(mktemp) || {
 }
 
 # Try to get credentials and replace with dummy tokens in one operation
-if ! "$SCRIPT_DIR/get-claude-credentials.sh" 2>/dev/null | jq '
+if ! get-claude-credentials.sh 2>/dev/null | jq '
         .claudeAiOauth.accessToken = "sk-ant-oat01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA" |
         .claudeAiOauth.refreshToken = "sk-ant-ort01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA"
     ' >"$TEMP_CREDS" 2>/dev/null; then
