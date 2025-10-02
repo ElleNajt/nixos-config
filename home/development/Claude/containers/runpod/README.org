@@ -57,6 +57,7 @@ Claude instructions are in =nixos-config/home/development/Claude/runpod.md=
 - =runpod push [source] [dest]= - Push directory to RunPod (defaults: current dir → remote_dir)
 - =runpod pull [source] [dest]= - Pull directory from RunPod (defaults: remote_dir → current dir)
 - =runpod run "command"= - Execute command on RunPod
+- =runpod python= - Open interactive Python REPL on RunPod
 - =runpod= - Open interactive SSH session
 
 * Worfklow
@@ -85,18 +86,21 @@ runpod push
 # Run a script on RunPod
 runpod run "cd /workspace/project && python train.py"
 
+# Open interactive Python REPL on RunPod
+runpod python
+
 # Pull results back
 runpod pull /workspace/project/results/ ./results/
 
-# Interactive session
+# Interactive SSH session
 runpod
 #+end_src
 
 * Security Considerations
 
-⚠️ I am not a security expert! I'm just having fun learning about container security as a hobby.
+⚠️ I am not a security expert!
 
-In my opinion this is reasonably safe as long as nothing sensitive ends up on the RunPod machine. Best practice is to run this inside the container set up in =../claudebox=, to address these reasonable concerns:
+In my opinion this is reasonably safe as long as nothing sensitive ends up on the RunPod machine. The best way to ensure that is to run this inside the container set up in =../claudebox=, to address these reasonable concerns:
 
 ** Concerns
 

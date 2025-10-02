@@ -195,7 +195,9 @@ def ensure_host_in_known_hosts(config: Dict[str, str]) -> None:
         print(f"⚠️  Warning: Could not update known_hosts: {e}")
 
 
-def run_ssh_command(config: Dict[str, str], command: str) -> None:
+def run_ssh_command(
+    config: Dict[str, str], command: str, force_tty: bool = False
+) -> None:
     """Run command on remote server via SSH."""
     ensure_host_in_known_hosts(config)
     ssh_key = Path(config["ssh_key"]).expanduser()
@@ -206,8 +208,13 @@ def run_ssh_command(config: Dict[str, str], command: str) -> None:
         str(ssh_key),
         "-p",
         config["port"],
-        f"{config['user']}@{config['host']}",
     ]
+
+    # Force pseudo-TTY allocation for interactive commands
+    if force_tty:
+        cmd.append("-t")
+
+    cmd.append(f"{config['user']}@{config['host']}")
 
     # Only add command if it's not empty (for interactive sessions)
     if command.strip():
@@ -317,6 +324,7 @@ def show_help() -> None:
     print("  runpod push [source] [dest]    - Push directory to RunPod")
     print("  runpod pull [source] [dest]    - Pull directory from RunPod")
     print("  runpod run 'command'           - Execute command on RunPod")
+    print("  runpod python                  - Open interactive Python REPL on RunPod")
     print("  runpod config                  - Show current configuration")
     print("  runpod                         - Open interactive SSH session")
     print()
@@ -372,6 +380,9 @@ def main():
         # This is the core feature - let Claude/user run whatever they want
         command = " ".join(sys.argv[2:])
         run_ssh_command(config, command)
+    elif sys.argv[1] == "python":
+        # Interactive Python REPL on remote server (needs TTY)
+        run_ssh_command(config, "python3", force_tty=True)
     else:
         print(f"❌ Unknown command: {sys.argv[1]}")
         show_help()
