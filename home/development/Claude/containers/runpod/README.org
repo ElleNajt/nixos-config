@@ -75,7 +75,7 @@ The workflow when using this tool with Claude:
 
 1. *Claude edits code locally* - Claude uses its normal file editing tools (Read, Write, Edit) to modify code in your local project directory inside the claudebox container
 
-2. *Claude pushes to RunPod* - Claude runs =runpod push= which uses rsync to sync the local directory to the remote RunPod machine via SSH. This excludes sensitive files (.ssh/, *.key, *.pem, etc.)
+2. *Claude pushes to RunPod* - Claude runs =runpod push= which uses rsync to sync the local directory to the remote RunPod machine via SSH.
 
 3. *Claude runs commands remotely* - Claude executes commands on RunPod using =runpod run "command"=, typically to install dependencies, run training scripts, etc.
 
