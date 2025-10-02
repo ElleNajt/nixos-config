@@ -65,7 +65,24 @@ Claude instructions are in =nixos-config/home/development/Claude/runpod.md=
 - =runpod run "command"= - Execute command on RunPod
 - =runpod= - Open interactive SSH session
 
-* Example Workflow
+* worfklow
+
+The workflow when using this tool with Claude:
+
+1. *Claude edits code locally* - Claude uses its normal file editing tools (Read, Write, Edit) to modify code in your local project directory inside the claudebox container
+
+2. *Claude pushes to RunPod* - Claude runs =runpod push= which uses rsync to sync the local directory to the remote RunPod machine via SSH. This excludes sensitive files (.ssh/, *.key, *.pem, etc.)
+
+3. *Claude runs commands remotely* - Claude executes commands on RunPod using =runpod run "command"=, typically to install dependencies, run training scripts, etc.
+
+4. *Claude pulls results back* - After the remote work completes, Claude uses =runpod pull= to bring results (model weights, logs, etc.) back to your local machine
+
+5. *You commit and push from host* - Because of the layered filesystem, you can commit changes from outside the container on your host machine, keeping git credentials off the container
+
+This way Claude can:
+- Iterate on code quickly (edit locally, test remotely)
+- Use GPU resources without GPU access on your machine
+- Never have direct access to git credentials or your main SSH keys
 
 #+begin_src bash
 # Push current directory to RunPod
@@ -83,9 +100,9 @@ runpod
 
 * Security Considerations
 
-⚠️ I am not a security expert! I'm just having fun learning about container security.
+⚠️ I am not a security expert! I'm just having fun learning about container security as a hobby.
 
-This is reasonably safe as long as nothing sensitive ends up on the RunPod machine. Best practice is to run this inside the container set up in =../claudebox=, to address these reasonable concerns:
+In my opinion this is reasonably safe as long as nothing sensitive ends up on the RunPod machine. Best practice is to run this inside the container set up in =../claudebox=, to address these reasonable concerns:
 
 ** Concerns
 
