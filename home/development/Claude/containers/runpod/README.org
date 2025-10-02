@@ -60,7 +60,7 @@ Claude instructions are in =nixos-config/home/development/Claude/runpod.md=
 - =runpod python= - Open interactive Python REPL on RunPod
 - =runpod= - Open interactive SSH session
 
-* Worfklow
+* Workflow
 
 The workflow when using this tool with Claude:
 
