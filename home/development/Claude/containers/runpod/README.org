@@ -118,5 +118,6 @@ In my opinion this is reasonably safe as long as nothing sensitive ends up on th
 4. *Layered filesystem:* Push to GitHub from home machine, not from container. Keeps git credentials on host.
 
 ** TODOs
-1. TODO[dsNaSAgBvm] - Intercepting proxy for SSH key (like credential proxy)
-2. TODO[eGO4AJClWQ] - RunPod image with matching firewall
+
+*** TODO - Intercepting proxy for SSH key (like credential proxy)
+*** TODO - RunPod image with matching firewall
