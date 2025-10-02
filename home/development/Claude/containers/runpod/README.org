@@ -39,7 +39,16 @@ Create =.runpod_config.json= in your project root (or git repository root):
 
 *Important:* When running inside the claudebox container, this file is mounted read-only for security. Edit it from your host machine.
 
-** 4. Add to Claude's Allowed Commands
+** 4. Add Script to PATH
+
+Add the runpod script to your PATH so it can be executed from anywhere:
+
+#+begin_src bash
+# Add to your shell configuration (~/.bashrc, ~/.zshrc, etc.)
+export PATH="$PATH:/path/to/nixos-config/home/development/Claude/containers/runpod"
+#+end_src
+
+** 5. Add to Claude's Allowed Commands
 
 Add to your Claude permissions:
 
