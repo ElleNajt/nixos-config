@@ -2,6 +2,10 @@
 
 Tool for syncing code to RunPod and running commands remotely.
 
+* Attribution
+
+API provisioning code adapted from [[https://github.com/Stefan-Heimersheim/runpod_cli][Stefan-Heimersheim/runpod_cli]].
+
 * Setup
 
 ** 1. Get RunPod Connection Details
@@ -62,12 +66,26 @@ Claude instructions are in =nixos-config/home/development/Claude/runpod.md=
 
 * Commands
 
+** SSH Commands (requires .runpod_config.json)
+
 - =runpod config= - Show current configuration
 - =runpod push [source] [dest]= - Push directory to RunPod (defaults: current dir → remote_dir)
 - =runpod pull [source] [dest]= - Pull directory from RunPod (defaults: remote_dir → current dir)
 - =runpod run "command"= - Execute command on RunPod
 - =runpod python= - Open interactive Python REPL on RunPod
 - =runpod= - Open interactive SSH session
+
+** API Commands (requires .env with RUNPOD_API_KEY)
+
+- =runpod create= - Create a new pod with configurable GPU, memory, disk, runtime
+- =runpod list= - List all pods with status, time remaining, and costs
+- =runpod terminate <pod_id>= - Terminate a specific pod
+
+API credentials should be in =.env= (in current directory) or =~/.config/runpod_cli/.env= with:
+- =RUNPOD_API_KEY=
+- =RUNPOD_NETWORK_VOLUME_ID=
+- =RUNPOD_S3_ACCESS_KEY_ID=
+- =RUNPOD_S3_SECRET_KEY=
 
 * Workflow
 
