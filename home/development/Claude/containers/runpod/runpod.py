@@ -885,8 +885,18 @@ def claudepod_create(
     print(f"📂 Remote dir: {remote_project_dir}")
     print(f"💾 Mount: {mount_path}")
     print()
-    print("Next steps:")
-    print(f"  cd .runpod-mount && claude")
+    print("🚀 Starting Claude in container with mounted RunPod filesystem...")
+    print()
+
+    # Change to mount directory and run claudebox
+    try:
+        subprocess.run(["claudebox"], cwd=mount_path, check=True)
+    except FileNotFoundError:
+        print("⚠️  claudebox not found in PATH")
+        print("   Run manually: cd .runpod-mount && claudebox")
+    except subprocess.CalledProcessError:
+        print("⚠️  claudebox exited with error")
+
     print()
     print("To backup work to local:")
     print(f"  cd .runpod-mount && git commit -am 'Work' && git push local main")
