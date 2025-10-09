@@ -591,7 +591,8 @@ def show_help() -> None:
     print("Usage:")
     print("  Integrated Workflow:")
     print("    runpod claudepod create [--gpu_type=TYPE] [--runtime=MINS]")
-    print("                                   - Create pod, sync code, mount, set up git remote")
+    print("                                   - Create pod, sync code, mount, start Claude in container")
+    print("    runpod claudepod start         - Start Claude in existing mount (reuse setup)")
     print()
     print("  SSH Commands (requires .runpod_config.json):")
     print("    runpod mount [mount_point]     - Mount remote directory via SSHFS (default: ./.runpod-mount)")
@@ -795,6 +796,44 @@ def create_pod(
     return pod
 
 
+def claudepod_start() -> None:
+    """Start claudebox in existing .runpod-mount (if already set up)."""
+    current_dir = Path.cwd()
+    mount_path = current_dir / ".runpod-mount"
+    config_path = current_dir / ".runpod_config.json"
+
+    # Check if setup exists
+    if not config_path.exists():
+        print("❌ No .runpod_config.json found")
+        print("   Run: runpod claudepod create")
+        sys.exit(1)
+
+    if not mount_path.exists():
+        print("❌ No .runpod-mount directory found")
+        print("   Run: runpod mount")
+        sys.exit(1)
+
+    # Check if mount is actually mounted
+    result = subprocess.run(["mount"], capture_output=True, text=True)
+    if str(mount_path.resolve()) not in result.stdout:
+        print("⚠️  .runpod-mount exists but is not mounted")
+        print("   Mounting now...")
+        config = load_config(config_path)
+        mount_directory(config)
+
+    print("🚀 Starting Claude in container with mounted RunPod filesystem...")
+    print()
+
+    # Run claudebox in the mount
+    try:
+        subprocess.run(["claudebox"], cwd=mount_path, check=True)
+    except FileNotFoundError:
+        print("⚠️  claudebox not found in PATH")
+        print("   Run manually: cd .runpod-mount && claudebox")
+    except subprocess.CalledProcessError:
+        print("⚠️  claudebox exited with error")
+
+
 def claudepod_create(
     gpu_type: str = "RTX A4000",
     runtime: int = 60,
@@ -809,6 +848,18 @@ def claudepod_create(
     current_dir = Path.cwd()
     project_name = current_dir.name
     remote_project_dir = f"/workspace/{project_name}"
+    mount_path = current_dir / ".runpod-mount"
+    config_path = current_dir / ".runpod_config.json"
+
+    # Check if already set up
+    if config_path.exists() and mount_path.exists():
+        print("✅ Found existing setup")
+        print(f"   Config: {config_path}")
+        print(f"   Mount: {mount_path}")
+        print()
+        print("Starting claudebox with existing setup...")
+        claudepod_start()
+        return
 
     # Create the pod
     logging.info(f"Creating pod for project: {project_name}")
@@ -910,7 +961,9 @@ def main():
     # Check if this is a claudepod command
     if len(sys.argv) > 1 and sys.argv[1] == "claudepod":
         if len(sys.argv) < 3:
-            print("Usage: runpod claudepod create [--gpu_type=TYPE] [--runtime=MINS]")
+            print("Usage:")
+            print("  runpod claudepod create [--gpu_type=TYPE] [--runtime=MINS]")
+            print("  runpod claudepod start")
             sys.exit(1)
         if sys.argv[2] == "create":
             # Simple argument parsing for claudepod create
@@ -922,6 +975,9 @@ def main():
                 elif arg.startswith("--runtime="):
                     runtime = int(arg.split("=", 1)[1])
             claudepod_create(gpu_type=gpu_type, runtime=runtime)
+            return
+        elif sys.argv[2] == "start":
+            claudepod_start()
             return
 
     # Check if this is an API command
