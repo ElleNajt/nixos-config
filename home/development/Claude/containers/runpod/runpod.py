@@ -492,13 +492,110 @@ def show_config(config: Dict[str, str], config_file: Path) -> None:
     print(f"   Remote Dir: {config['remote_dir']}")
 
 
+def ensure_gitignore(pattern: str) -> None:
+    """Ensure pattern is in .gitignore."""
+    gitignore_path = Path(".gitignore")
+
+    # Check if we're in a git repo
+    if not Path(".git").exists():
+        return
+
+    # Read existing gitignore
+    if gitignore_path.exists():
+        with open(gitignore_path, "r") as f:
+            content = f.read()
+        if pattern in content:
+            return
+
+    # Add pattern
+    with open(gitignore_path, "a") as f:
+        if gitignore_path.exists() and not content.endswith("\n"):
+            f.write("\n")
+        f.write(f"{pattern}\n")
+
+    logging.info(f"Added {pattern} to .gitignore")
+
+
+def mount_directory(config: Dict[str, str], mount_point: Optional[str] = None) -> None:
+    """Mount RunPod remote directory using SSHFS."""
+    if mount_point is None:
+        mount_point = "./.runpod-mount"
+
+    mount_path = Path(mount_point).resolve()
+
+    # Check if already mounted
+    result = subprocess.run(
+        ["mount"],
+        capture_output=True,
+        text=True,
+    )
+    if str(mount_path) in result.stdout:
+        print(f"⚠️  {mount_path} is already mounted")
+        print(f"   To unmount: fusermount -u {mount_path}")
+        return
+
+    # Create mount point if it doesn't exist
+    mount_path.mkdir(parents=True, exist_ok=True)
+
+    # Check if directory is empty
+    if list(mount_path.iterdir()):
+        print(f"❌ Mount point {mount_path} is not empty")
+        sys.exit(1)
+
+    # Ensure .runpod-mount is in .gitignore
+    ensure_gitignore(".runpod-mount/")
+
+    ensure_host_in_known_hosts(config)
+    ssh_key = Path(config["ssh_key"]).expanduser()
+
+    print(f"🔗 Mounting {config['user']}@{config['host']}:{config['remote_dir']}")
+    print(f"   to {mount_path}")
+
+    cmd = [
+        "sshfs",
+        f"{config['user']}@{config['host']}:{config['remote_dir']}",
+        str(mount_path),
+        "-p", config["port"],
+        "-o", f"IdentityFile={ssh_key}",
+        "-o", "reconnect",
+        "-o", "ServerAliveInterval=15",
+        "-o", "ServerAliveCountMax=3",
+    ]
+
+    subprocess.run(cmd, check=True)
+    print(f"✅ Mounted successfully")
+    print(f"   Work in: cd {mount_path}")
+    print(f"   Unmount: fusermount -u {mount_path}")
+
+
+def unmount_directory(mount_point: Optional[str] = None) -> None:
+    """Unmount SSHFS mount."""
+    if mount_point is None:
+        mount_point = "./.runpod-mount"
+
+    mount_path = Path(mount_point).resolve()
+
+    print(f"🔌 Unmounting {mount_path}")
+
+    cmd = ["fusermount", "-u", str(mount_path)]
+
+    subprocess.run(cmd, check=True)
+    print(f"✅ Unmounted successfully")
+
+
 def show_help() -> None:
     """Show usage information."""
     print("🔬 RunPod Deployment Tool")
     print("=" * 50)
     print()
     print("Usage:")
+    print("  Integrated Workflow:")
+    print("    runpod claudepod create [--gpu_type=TYPE] [--runtime=MINS]")
+    print("                                   - Create pod, sync code, mount, set up git remote")
+    print()
     print("  SSH Commands (requires .runpod_config.json):")
+    print("    runpod mount [mount_point]     - Mount remote directory via SSHFS (default: ./.runpod-mount)")
+    print("    runpod unmount [mount_point]   - Unmount SSHFS mount")
     print("    runpod push [source] [dest]    - Push directory to RunPod")
     print("    runpod pull [source] [dest]    - Pull directory from RunPod")
     print("    runpod run 'command'           - Execute command on RunPod")
@@ -510,6 +607,17 @@ def show_help() -> None:
     print("    runpod create [options]        - Create a new pod")
     print("    runpod list                    - List all pods")
     print("    runpod terminate <pod_id>      - Terminate a pod")
+    print()
+    print("Recommended Workflow:")
+    print("  1. cd ~/code/my-project")
+    print("  2. runpod claudepod create --gpu_type='RTX A4000' --runtime=120")
+    print("     → Creates pod, syncs code, mounts to ./.runpod-mount")
+    print("  3. cd .runpod-mount && claude")
+    print("     → Work in mount (single source of truth on RunPod)")
+    print("  4. git commit -am 'Work' && git push local main")
+    print("     → Backup work to local repo")
+    print("  5. runpod terminate <pod_id>")
+    print("     → Clean up (local backup remains)")
     print()
     print("SSH Configuration:")
     print("  Create .runpod_config.json with:")
@@ -585,8 +693,8 @@ def create_pod(
     memory: int = 1,
     num_gpus: int = 1,
     volume_mount_path: str = "/network",
-) -> None:
-    """Create a new RunPod instance with the specified parameters."""
+) -> Dict:
+    """Create a new RunPod instance with the specified parameters. Returns pod info."""
     if runpod is None:
         print("❌ runpod module not installed. Install with: pip install runpod")
         sys.exit(1)
@@ -684,9 +792,128 @@ def create_pod(
         port = public_ips[0].get("publicPort")
         logging.info(f"Public IP: {ip}:{port}")
 
+    return pod
+
+
+def claudepod_create(
+    gpu_type: str = "RTX A4000",
+    runtime: int = 60,
+    ssh_key: str = "~/.ssh/runpod_key",
+    cpus: int = 1,
+    disk: int = 30,
+    memory: int = 1,
+    num_gpus: int = 1,
+) -> None:
+    """Create pod, sync code, mount, and set up git remote - all in one command."""
+    # Get current directory name for pod naming
+    current_dir = Path.cwd()
+    project_name = current_dir.name
+    remote_project_dir = f"/workspace/{project_name}"
+
+    # Create the pod
+    logging.info(f"Creating pod for project: {project_name}")
+    pod = create_pod(
+        name=f"{project_name}-{gpu_type.replace(' ', '-')}",
+        runtime=runtime,
+        gpu_type=gpu_type,
+        cpus=cpus,
+        disk=disk,
+        memory=memory,
+        num_gpus=num_gpus,
+        volume_mount_path="/workspace",
+    )
+
+    # Extract connection details
+    pod_id = pod.get("id")
+    public_ips = [i for i in pod["runtime"]["ports"] if i["isIpPublic"]]
+    if len(public_ips) != 1:
+        print(f"❌ Expected 1 public IP, got {len(public_ips)}")
+        sys.exit(1)
+
+    ip = public_ips[0].get("ip")
+    port = public_ips[0].get("publicPort")
+    user = "root"
+
+    # Create .runpod_config.json
+    config = {
+        "user": user,
+        "host": ip,
+        "port": str(port),
+        "ssh_key": ssh_key,
+        "remote_dir": remote_project_dir,
+    }
+
+    config_path = current_dir / ".runpod_config.json"
+    with open(config_path, "w") as f:
+        json.dump(config, f, indent=2)
+    logging.info(f"Created {config_path}")
+
+    # Ensure .runpod_config.json is in .gitignore
+    ensure_gitignore(".runpod_config.json")
+
+    # Load config for subsequent operations
+    loaded_config = load_config(config_path)
+
+    # Wait a bit for SSH to be ready
+    logging.info("Waiting for SSH to be ready...")
+    time.sleep(10)
+
+    # Rsync current directory to RunPod
+    logging.info(f"Syncing {current_dir} → RunPod:{remote_project_dir}")
+    push_directory(loaded_config, ".", remote_project_dir)
+
+    # Mount the remote directory
+    logging.info("Mounting RunPod filesystem...")
+    mount_directory(loaded_config)
+
+    # Set up git remote in the mount
+    mount_path = current_dir / ".runpod-mount"
+    if (mount_path / ".git").exists():
+        logging.info("Setting up git remote 'local' in mount...")
+        subprocess.run(
+            ["git", "remote", "add", "local", str(current_dir)],
+            cwd=mount_path,
+            capture_output=True,
+        )
+        logging.info("Git remote 'local' added")
+
+    print()
+    print("✅ Setup complete!")
+    print()
+    print(f"📁 Pod ID: {pod_id}")
+    print(f"🔗 Connection: {user}@{ip}:{port}")
+    print(f"📂 Remote dir: {remote_project_dir}")
+    print(f"💾 Mount: {mount_path}")
+    print()
+    print("Next steps:")
+    print(f"  cd .runpod-mount && claude")
+    print()
+    print("To backup work to local:")
+    print(f"  cd .runpod-mount && git commit -am 'Work' && git push local main")
+    print()
+    print(f"To terminate pod:")
+    print(f"  runpod terminate {pod_id}")
+
 
 def main():
     """Main entry point."""
+    # Check if this is a claudepod command
+    if len(sys.argv) > 1 and sys.argv[1] == "claudepod":
+        if len(sys.argv) < 3:
+            print("Usage: runpod claudepod create [--gpu_type=TYPE] [--runtime=MINS]")
+            sys.exit(1)
+        if sys.argv[2] == "create":
+            # Simple argument parsing for claudepod create
+            gpu_type = "RTX A4000"
+            runtime = 60
+            for arg in sys.argv[3:]:
+                if arg.startswith("--gpu_type="):
+                    gpu_type = arg.split("=", 1)[1]
+                elif arg.startswith("--runtime="):
+                    runtime = int(arg.split("=", 1)[1])
+            claudepod_create(gpu_type=gpu_type, runtime=runtime)
+            return
+
     # Check if this is an API command
     if len(sys.argv) > 1 and sys.argv[1] in ["create", "list", "terminate"]:
         if sys.argv[1] == "list":
@@ -721,6 +948,12 @@ def main():
         show_config(config, config_file)
     elif sys.argv[1] == "help" or sys.argv[1] == "--help" or sys.argv[1] == "-h":
         show_help()
+    elif sys.argv[1] == "mount":
+        mount_point = sys.argv[2] if len(sys.argv) > 2 else None
+        mount_directory(config, mount_point)
+    elif sys.argv[1] == "unmount":
+        mount_point = sys.argv[2] if len(sys.argv) > 2 else None
+        unmount_directory(mount_point)
     elif sys.argv[1] == "push":
         source_dir = sys.argv[2] if len(sys.argv) > 2 else "."
         # Quote command line dest_dir for consistency with config values

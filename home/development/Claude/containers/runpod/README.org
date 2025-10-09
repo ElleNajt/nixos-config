@@ -66,8 +66,14 @@ Claude instructions are in =nixos-config/home/development/Claude/runpod.md=
 
 * Commands
 
+** Integrated Workflow
+
+- =runpod claudepod create [--gpu_type=TYPE] [--runtime=MINS]= - Create pod, sync code, mount, set up git remote (all-in-one)
+
 ** SSH Commands (requires .runpod_config.json)
 
+- =runpod mount [mount_point]= - Mount remote directory via SSHFS (default: ./.runpod-mount)
+- =runpod unmount [mount_point]= - Unmount SSHFS mount
 - =runpod config= - Show current configuration
 - =runpod push [source] [dest]= - Push directory to RunPod (defaults: current dir → remote_dir)
 - =runpod pull [source] [dest]= - Pull directory from RunPod (defaults: remote_dir → current dir)
@@ -89,7 +95,39 @@ API credentials should be in =.env= (in current directory) or =~/.config/runpod_
 
 * Workflow
 
-The workflow when using this tool with Claude:
+** Recommended: Integrated Claudepod Workflow
+
+This is the preferred workflow - single command to provision, sync, and mount:
+
+1. *Create pod with claudepod* - =runpod claudepod create --gpu_type="RTX A4000" --runtime=120=
+   - Provisions new pod via API
+   - Rsyncs current directory to RunPod
+   - Mounts RunPod to =./.runpod-mount= via SSHFS
+   - Sets up local repo as git remote
+   - Creates =.runpod_config.json= automatically
+2. *Work in the mount* - =cd .runpod-mount && claude= - Claude edits files directly on RunPod
+3. *Backup periodically* - =git commit -am 'Work' && git push local main= - Push to local repo
+4. *Execute on RunPod* - =runpod run "python script.py"= to run code
+5. *Clean up* - =runpod terminate <pod_id>= - Destroys pod, local backup remains
+
+This ensures:
+- ✅ Single source of truth while working (RunPod via SSHFS mount)
+- ✅ Local backup copy (initial rsync + git pushes)
+- ✅ No manual config setup
+- ✅ No sync conflicts (work directly in mount)
+
+** Alternative: Manual SSHFS Mount Workflow
+
+If you have an existing pod with =.runpod_config.json=:
+
+1. *Mount RunPod filesystem* - Run =runpod mount= to mount the remote directory via SSHFS to =./.runpod-mount=
+2. *Work in the mount* - =cd .runpod-mount && claude= - Claude edits files directly on RunPod
+3. *Execute on RunPod* - Claude runs =runpod run "python script.py"= to execute code
+4. *Unmount when done* - =runpod unmount= to disconnect
+
+** Alternative: Push/Pull Workflow
+
+The traditional workflow using rsync (use when SSHFS latency is problematic):
 
 1. *Claude edits code locally* - Claude uses its normal file editing tools (Read, Write, Edit) to modify code in your local project directory inside the claudebox container
 
@@ -101,26 +139,31 @@ The workflow when using this tool with Claude:
 
 5. *You commit and push from host* - Because of the layered filesystem, you can commit changes from outside the container on your host machine, keeping git credentials off the container
 
-This way Claude can:
-- Iterate on code quickly (edit locally, test remotely)
-- Use GPU resources without GPU access on your machine
-- Never have direct access to git credentials or your main SSH keys
+⚠️ *Warning:* This workflow can lead to Claude using =runpod run sed= or =runpod run "echo ..."= to edit files remotely, creating divergent versions. Use the mount workflow instead.
 
 #+begin_src bash
-# Push current directory to RunPod
-runpod push
+# Recommended: Integrated claudepod workflow
+cd ~/code/my-project
+runpod claudepod create --gpu_type="RTX A4000" --runtime=120
+cd .runpod-mount && claude                # Work in mount
+git commit -am 'Work' && git push local main  # Backup to local
+runpod run "python train.py"              # Execute on RunPod
+runpod terminate <pod_id>                 # Clean up
 
-# Run a script on RunPod
-runpod run "cd /workspace/project && python train.py"
+# Alternative: Manual mount workflow (existing pod)
+runpod mount                              # Mount to ./.runpod-mount
+cd .runpod-mount && claude                # Work in mount
+runpod run "python train.py"              # Execute code
+runpod unmount                            # Unmount when done
 
-# Open interactive Python REPL on RunPod
-runpod python
+# Alternative: Push/Pull workflow
+runpod push                               # Push current directory to RunPod
+runpod run "cd /workspace/project && python train.py"  # Run a script
+runpod pull /workspace/project/results/ ./results/     # Pull results back
 
-# Pull results back
-runpod pull /workspace/project/results/ ./results/
-
-# Interactive SSH session
-runpod
+# Other commands
+runpod python                             # Open interactive Python REPL on RunPod
+runpod                                    # Interactive SSH session
 #+end_src
 
 * Security Considerations
