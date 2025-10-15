@@ -174,6 +174,30 @@ fi
 cleanup() {
     local exit_code=$?
 
+    # Save conversations from container before removing it
+    if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$" 2>/dev/null; then
+        echo ""
+        echo "💾 Saving conversations from container..."
+
+        # Check if container has any conversations
+        if docker exec "$CONTAINER_NAME" test -d /home/node/.claude/projects 2>/dev/null; then
+            mkdir -p "$HOME/.claude/projects"
+
+            # Copy each project directory, skipping if it already exists on host
+            for project_dir in $(docker exec "$CONTAINER_NAME" find /home/node/.claude/projects -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true); do
+                project_name=$(basename "$project_dir")
+
+                if [[ -d "$HOME/.claude/projects/$project_name" ]]; then
+                    echo "   ⏭️  Skipping $project_name (already exists)"
+                else
+                    echo "   📥 Saving $project_name"
+                    docker cp "$CONTAINER_NAME:/home/node/.claude/projects/$project_name" "$HOME/.claude/projects/" 2>/dev/null || true
+                fi
+            done
+            echo "   ✅ Conversations saved to $HOME/.claude/projects"
+        fi
+    fi
+
     # Remove container (but NOT the proxy - it's shared!)
     docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
