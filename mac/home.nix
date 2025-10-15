@@ -119,6 +119,36 @@
     ".claude".source = ../home/development/Claude;
     ".claude".recursive = true;
 
+    ".git-hooks/pre-commit" = {
+      executable = true;
+      text = ''
+        #!/bin/sh
+
+        # Global pre-commit hook for secret scanning using gitleaks
+        # This hook runs gitleaks on staged changes before allowing a commit
+
+        echo "Running gitleaks scan on staged changes..."
+
+        # Run gitleaks protect on staged changes
+        if ! gitleaks protect --staged --verbose --redact; then
+            echo ""
+            echo "⚠️  Gitleaks found potential secrets in your staged changes!"
+            echo "Please review and remove any sensitive information before committing."
+            echo ""
+            echo "To bypass this check (NOT RECOMMENDED), use: git commit --no-verify"
+            exit 1
+        fi
+
+        echo "✓ No secrets detected"
+        exit 0
+      '';
+    };
+
+    ".gitconfig".text = ''
+      [core]
+        hooksPath = ~/.git-hooks
+    '';
+
     ".overtone/config.clj".text = ''
 
 {:os :mac
@@ -154,7 +184,9 @@
       set -o vi
       eval "$(direnv hook zsh)"
 
-
+      # Ensure Homebrew binaries take precedence
+      export PATH="/opt/homebrew/bin:$PATH"
+      export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:/opt/homebrew/share/pkgconfig:$PKG_CONFIG_PATH"
 
     # NVM setup
     export NVM_DIR="$HOME/.nvm"
@@ -206,14 +238,17 @@
       # brew "libtool"
       # brew "pkgconf"
       # brew "poppler"
+      brew "bzip2"
       brew "libvterm"
       brew "librist"
+      brew "libpng"
       brew "pango"
 
       brew "nvm"
       brew "ffmpeg"
       brew "gifsicle"
       brew "git"
+
       brew "pkgconf"
       # brew "jack", restart_service: :changed
       brew "latexindent"
@@ -231,6 +266,7 @@
       brew "koekeishiya/formulae/skhd"
       brew "koekeishiya/formulae/yabai"
       brew "docker"
+      brew "gitleaks"
 
       cask "emacs"
       cask "gstreamer-runtime"
