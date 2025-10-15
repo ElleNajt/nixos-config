@@ -53,6 +53,7 @@
   ripgrep
   rlwrap
   aider-chat
+  runpodctl
 
   ruff
   samba

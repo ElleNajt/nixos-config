@@ -59,6 +59,8 @@
 
       xdotool
 
+      runpodctl
+
       # RunPod script
       (pkgs.writeScriptBin "runpod" ''
         #!${pkgs.python3}/bin/python3
