@@ -144,7 +144,20 @@
       '';
     };
 
+    ".gitignore_global".text = ''
+      .env
+      .runpod_config.json
+    '';
+
     ".gitconfig".text = ''
+      [user]
+        name = Elle Najt
+        email = LNAJT4@gmail.com
+      [merge]
+        conflictStyle = diff3
+      [core]
+        excludesfile = /Users/elle/.gitignore_global
+        hooksPath = /Users/elle/.git-hooks
       [core]
         hooksPath = ~/.git-hooks
     '';
