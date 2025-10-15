@@ -17,15 +17,19 @@ In your RunPod dashboard:
 2. Click "Connect" → "SSH over exposed TCP"
 3. Note the connection details (host, port, user - typically "root")
 
-** 2. Generate Throwaway SSH Key
-
-(Until I have an intercepting proxy for this)
+** 2. Generate Dedicated SSH Key
 
 Generate a dedicated SSH key just for RunPod (don't reuse your main keys):
 
 #+begin_src bash
-ssh-keygen -t ed25519 -f ~/.ssh/runpod_key -C "runpod-throwaway"
+ssh-keygen -t ed25519 -f ~/.ssh/runpod_key -C "runpod-dedicated"
 #+end_src
+
+*Security Note:* When using =claudebox=, the SSH key never enters the container. Instead, =claudebox= starts an isolated SSH agent on your host that only has this RunPod key loaded, then forwards the agent socket to the container. This means:
+- ✅ Private key stays on your host machine
+- ✅ Container cannot extract key material (only signatures via agent)
+- ✅ Agent is isolated from your other SSH keys (GitHub, work, etc.)
+- ✅ Agent dies when container exits (no persistent access)
 
 ** 3. Create .runpod_config.json
 
@@ -182,7 +186,7 @@ In my opinion this is reasonably safe as long as nothing sensitive ends up on th
 
 1. *Prevent sensitive data from entering the container:*
    - Intercepting proxy prevents Claude credentials from entering the container (unclear if this matters)
-   - *MAJOR CONCERN:* Currently using a throwaway SSH key copied into the container. Prefer an intercepting proxy here too - if the key is exfiltrated, an attacker could connect to RunPod, install malware, and compromise your home machine on next connection
+   - ✅ *SSH key protection via isolated agent:* Private key never enters container. Claudebox starts isolated SSH agent on host with only RunPod key, forwards agent socket read-only. Container can authenticate to RunPod but cannot extract key material or use other keys.
    - Only provide read-only tokens (e.g., HuggingFace)
 
 2. *Container firewall:* Security theater without a matching firewall on the RunPod side. Even with both, connections to GitHub/HuggingFace could be used to exfiltrate secrets via issues/etc. Still, probably useful.
@@ -191,7 +195,18 @@ In my opinion this is reasonably safe as long as nothing sensitive ends up on th
 
 4. *Layered filesystem:* Push to GitHub from home machine, not from container. Keeps git credentials on host.
 
+** SSH Agent Implementation Details
+
+The =claudebox= script implements SSH key protection via isolated agent forwarding:
+
+1. *Agent isolation:* When =.runpod_config.json= is detected, claudebox starts a fresh =ssh-agent= process separate from your main agent
+2. *Single key loading:* Only the RunPod key specified in config is loaded (via =ssh-add=)
+3. *Socket forwarding:* Agent socket mounted read-only into container at =/ssh-agent=
+4. *Environment setup:* =SSH_AUTH_SOCK= set in container to use forwarded socket
+5. *Automatic cleanup:* Agent process killed when container exits
+
+This prevents key exfiltration while allowing legitimate SSH operations (ssh, rsync, sshfs) to work transparently.
+
 ** TODOs
 
-*** TODO - Intercepting proxy for SSH key (like credential proxy)
 *** TODO - RunPod image with matching firewall
