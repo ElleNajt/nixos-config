@@ -32,6 +32,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   nano \
   vim \
   fuse-overlayfs \
+  python3 \
+  python3-pip \
+  python3-venv \
+  build-essential \
+  curl \
+  sshfs \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Ensure default node user has access to /usr/local/share
@@ -94,8 +100,14 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 COPY emacs/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
 RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
 
-# Copy runpod script
+# Install uv (fast Python package manager) - system-wide
+# RUN curl -LsSf https://astral.sh/uv/install.sh | env INSTALLER_NO_MODIFY_PATH=1 sh && \
+#   mv /root/.cargo/bin/uv /usr/local/bin/ && \
+#   mv /root/.cargo/bin/uvx /usr/local/bin/
+
+# Copy runpod script and install Python dependencies
 COPY runpod/runpod.py /usr/local/bin/runpod
-RUN chmod +x /usr/local/bin/runpod
+RUN chmod +x /usr/local/bin/runpod && \
+  pip3 install --no-cache-dir boto3 requests python-dotenv runpod --break-system-packages
 
 USER node
