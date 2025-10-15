@@ -20,7 +20,7 @@ in
   '')
 
   (pkgs.writeScriptBin "runpod" ''
-    #!${pkgs.python3}/bin/python3
+    #!${pkgs.python3.withPackages (ps: with ps; [ boto3 requests python-dotenv runpod-python ])}/bin/python3
     ${builtins.readFile "${runpodDir}/runpod.py"}
   '')
 ]
