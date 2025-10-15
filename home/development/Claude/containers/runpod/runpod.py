@@ -139,8 +139,17 @@ def load_config(config_file: Path) -> Dict[str, str]:
     return config
 
 
-def validate_ssh_key_path(ssh_key_path: str) -> Path:
-    """Validate SSH key is in expected locations only."""
+def has_ssh_agent() -> bool:
+    """Check if SSH agent is available."""
+    return "SSH_AUTH_SOCK" in os.environ and Path(os.environ["SSH_AUTH_SOCK"]).exists()
+
+
+def validate_ssh_key_path(ssh_key_path: str) -> Optional[Path]:
+    """Validate SSH key is in expected locations only. Returns None if using SSH agent."""
+    # If SSH agent is available, prefer it over key files
+    if has_ssh_agent():
+        return None
+
     # Check if running in container and key is available
     container_key = Path("/home/node/.ssh/runpod_key")
     if container_key.is_file():
@@ -265,15 +274,15 @@ def run_ssh_command(
 ) -> None:
     """Run command on remote server via SSH."""
     ensure_host_in_known_hosts(config)
-    ssh_key = Path(config["ssh_key"]).expanduser()
+    ssh_key = validate_ssh_key_path(config["ssh_key"])
 
-    cmd = [
-        "ssh",
-        "-i",
-        str(ssh_key),
-        "-p",
-        config["port"],
-    ]
+    cmd = ["ssh"]
+
+    # Only add key if not using agent
+    if ssh_key is not None:
+        cmd.extend(["-i", str(ssh_key)])
+
+    cmd.extend(["-p", config["port"]])
 
     # Force pseudo-TTY allocation for interactive commands
     if force_tty:
@@ -299,9 +308,15 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     """Push directory to remote server via rsync."""
     ensure_host_in_known_hosts(config)
     source_path = validate_source_path(source_dir)
-    ssh_key = Path(config["ssh_key"]).expanduser()
+    ssh_key = validate_ssh_key_path(config["ssh_key"])
 
     print(f"📤 Pushing {source_dir} to RunPod:{dest_dir}")
+
+    # Build SSH command for rsync
+    if ssh_key is not None:
+        ssh_cmd = f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}"
+    else:
+        ssh_cmd = f"ssh -p {config['port']}"
 
     cmd = [
         "rsync",
@@ -316,7 +331,7 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "--exclude=venv/",  # No venv (created on remote)
         "--exclude=.direnv/",  # No direnv
         "-e",
-        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
+        ssh_cmd,
         f"{shlex.quote(str(source_path))}/",
         f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
     ]
@@ -336,9 +351,15 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
 def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
     """Pull directory from remote server via rsync."""
     dest_path = validate_source_path(dest_dir)
-    ssh_key = Path(config["ssh_key"]).expanduser()
+    ssh_key = validate_ssh_key_path(config["ssh_key"])
 
     print(f"📥 Pulling RunPod:{source_dir} to {dest_dir}")
+
+    # Build SSH command for rsync
+    if ssh_key is not None:
+        ssh_cmd = f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}"
+    else:
+        ssh_cmd = f"ssh -p {config['port']}"
 
     cmd = [
         "rsync",
@@ -353,7 +374,7 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "--exclude=venv/",  # No venv (created on remote)
         "--exclude=.direnv/",  # No direnv
         "-e",
-        f"ssh -i {shlex.quote(str(ssh_key))} -p {config['port']}",
+        ssh_cmd,
         f"{config['user']}@{config['host']}:{shlex.quote(source_dir)}",
         f"{shlex.quote(str(dest_path))}/",
     ]
@@ -546,7 +567,7 @@ def mount_directory(config: Dict[str, str], mount_point: Optional[str] = None) -
     ensure_gitignore(".runpod-mount/")
 
     ensure_host_in_known_hosts(config)
-    ssh_key = Path(config["ssh_key"]).expanduser()
+    ssh_key = validate_ssh_key_path(config["ssh_key"])
 
     print(f"🔗 Mounting {config['user']}@{config['host']}:{config['remote_dir']}")
     print(f"   to {mount_path}")
@@ -556,11 +577,17 @@ def mount_directory(config: Dict[str, str], mount_point: Optional[str] = None) -
         f"{config['user']}@{config['host']}:{config['remote_dir']}",
         str(mount_path),
         "-p", config["port"],
-        "-o", f"IdentityFile={ssh_key}",
+    ]
+
+    # Only add IdentityFile if not using agent
+    if ssh_key is not None:
+        cmd.extend(["-o", f"IdentityFile={ssh_key}"])
+
+    cmd.extend([
         "-o", "reconnect",
         "-o", "ServerAliveInterval=15",
         "-o", "ServerAliveCountMax=3",
-    ]
+    ])
 
     subprocess.run(cmd, check=True)
     print(f"✅ Mounted successfully")
