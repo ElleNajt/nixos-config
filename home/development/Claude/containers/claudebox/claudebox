@@ -213,9 +213,25 @@ docker_cmd=(
     --privileged # Needed for fuse-overlayfs
 )
 
-# Mount the general .claude directory as read-only lower layer
+# Mount only specific files and directories from .claude (explicit allowlist)
 if [[ -d "$HOME/.claude" ]]; then
-    docker_cmd+=(-v "$HOME/.claude:/tmp/claude-general:ro")
+    # Mount settings.json if it exists
+    if [[ -f "$HOME/.claude/settings.json" ]]; then
+        docker_cmd+=(-v "$HOME/.claude/settings.json:/tmp/claude-general/settings.json:ro")
+    fi
+
+    # Mount agents directory if it exists
+    if [[ -d "$HOME/.claude/agents" ]]; then
+        docker_cmd+=(-v "$HOME/.claude/agents:/tmp/claude-general/agents:ro")
+    fi
+
+    # Mount any markdown files in top level .claude directory
+    for mdfile in "$HOME/.claude"/*.md; do
+        if [[ -f "$mdfile" ]]; then
+            filename=$(basename "$mdfile")
+            docker_cmd+=(-v "$mdfile:/tmp/claude-general/$filename:ro")
+        fi
+    done
 fi
 
 # Check if project-specific config exists and mount it
@@ -252,7 +268,7 @@ if [[ -f "$(pwd)/.runpod_config.json" ]]; then
 
             # Start a fresh ssh-agent just for this container
             AGENT_OUTPUT=$(ssh-agent -s)
-            eval "$AGENT_OUTPUT" > /dev/null
+            eval "$AGENT_OUTPUT" >/dev/null
             RUNPOD_AGENT_PID=$SSH_AGENT_PID
             RUNPOD_AGENT_SOCK=$SSH_AUTH_SOCK
 
@@ -291,9 +307,10 @@ export ENABLE_FIREWALL
 
     # Function to copy configs with proper merging
     merge_configs() {
-        # Copy general config first if it exists
+        # Copy general config first if it exists (EXCLUDING projects directory, which have sensitive info)
         if [[ -d /tmp/claude-general ]]; then
-            cp -r /tmp/claude-general/* /home/node/.claude/ 2>/dev/null || true
+            # Copy everything except the projects directory
+            find /tmp/claude-general -mindepth 1 -maxdepth 1 ! -name 'projects' -exec cp -r {} /home/node/.claude/ \; 2>/dev/null || true
         fi
 
         # Overlay project-specific config if it exists (overwriting general)
@@ -302,26 +319,10 @@ export ENABLE_FIREWALL
         fi
     }
 
-    # Try to use fuse-overlayfs for union filesystem, fall back to copying
-    if [[ -d /tmp/claude-project ]] && [[ -d /tmp/claude-general ]]; then
-        # Both configs exist - try union filesystem first
-        if command -v fuse-overlayfs &> /dev/null; then
-            # Try to create union filesystem
-            if fuse-overlayfs -o lowerdir=/tmp/claude-general,upperdir=/tmp/claude-project,workdir=/tmp/overlay-work /home/node/.claude 2>/dev/null; then
-                echo '✓ Using union filesystem for configs'
-            else
-                # Fallback to copying if overlayfs fails
-                echo '✓ Using merged configs (copy method)'
-                merge_configs
-            fi
-        else
-            # No fuse-overlayfs available, use copy method
-            merge_configs
-        fi
-    else
-        # Only one or no configs exist - simple copy
-        merge_configs
-    fi
+    # Always use copy method to ensure projects directory is excluded
+    # (fuse-overlayfs would expose the entire lower layer including projects/)
+    echo '✓ Using merged configs (copy method, excluding conversations)'
+    merge_configs
 
     # Copy credentials if provided (overwriting any from the mounted directories)
     [[ -f /tmp/credentials.json ]] && cp /tmp/credentials.json /home/node/.claude/.credentials.json
