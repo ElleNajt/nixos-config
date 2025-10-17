@@ -4,6 +4,7 @@ let
   proxiesDir = ./proxies;
   claudeboxDir = ./claudebox;
   runpodDir = ./runpod;
+  emacsDir = ./emacs;
 in
 [
   (pkgs.writeScriptBin "claude-auth-proxy.py" ''
@@ -27,12 +28,13 @@ in
     ${builtins.readFile "${claudeboxDir}/test-claudebox-security.sh"}
   '')
 
-  (pkgs.writeScriptBin "inspect-claudebox-security" ''
-    ${builtins.readFile "${claudeboxDir}/inspect-claudebox-security.sh"}
-  '')
-
   (pkgs.writeScriptBin "runpod" ''
     #!${pkgs.python3}/bin/python3
     ${builtins.readFile "${runpodDir}/runpod.py"}
+  '')
+
+  (pkgs.writeScriptBin "check-fallbacks.sh" ''
+    #!${pkgs.python3}/bin/python3
+    ${builtins.readFile "${emacsDir}/check-fallbacks.py"}
   '')
 ]

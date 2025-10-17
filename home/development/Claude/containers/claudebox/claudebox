@@ -25,6 +25,7 @@ ATTEMPT=0
 RUN_BASH=false
 VERBOSE=false
 ENABLE_FIREWALL=false
+SAVE_CONVERSATIONS=false
 while [[ $# -gt 0 ]]; do
     case $1 in
     --mount-claude-md)
@@ -41,6 +42,11 @@ while [[ $# -gt 0 ]]; do
         ;;
     --firewall)
         ENABLE_FIREWALL=true
+        shift
+        ;;
+    --continue|-c|--resume|-r)
+        SAVE_CONVERSATIONS=true
+        CLAUDE_ARGS+=("$1")
         shift
         ;;
     --help)
@@ -174,27 +180,26 @@ fi
 cleanup() {
     local exit_code=$?
 
-    # Save conversations from container before removing it
-    if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$" 2>/dev/null; then
+    # Save conversations from container before removing it (only if --continue/-c/--resume/-r was used)
+    if [[ "$SAVE_CONVERSATIONS" == "true" ]] && docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$" 2>/dev/null; then
         echo ""
         echo "💾 Saving conversations from container..."
 
         # Check if container has any conversations
         if docker exec "$CONTAINER_NAME" test -d /home/node/.claude/projects 2>/dev/null; then
-            mkdir -p "$HOME/.claude/projects"
+            # Create destination directory with correct host-based project name
+            mkdir -p "$HOME/.claude/projects/$PROJECT_NAME"
 
-            # Copy each project directory, skipping if it already exists on host
+            # Copy conversation files from container to host using correct project name
+            # Extracts files from container's project dirs (e.g., "workspace") into host dir
             for project_dir in $(docker exec "$CONTAINER_NAME" find /home/node/.claude/projects -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true); do
-                project_name=$(basename "$project_dir")
+                container_name=$(basename "$project_dir")
 
-                if [[ -d "$HOME/.claude/projects/$project_name" ]]; then
-                    echo "   ⏭️  Skipping $project_name (already exists)"
-                else
-                    echo "   📥 Saving $project_name"
-                    docker cp "$CONTAINER_NAME:/home/node/.claude/projects/$project_name" "$HOME/.claude/projects/" 2>/dev/null || true
-                fi
+                # Copy the contents (files) from container project dir to host project dir
+                echo "   📥 Saving conversations from container:$container_name → host:$PROJECT_NAME"
+                docker cp "$CONTAINER_NAME:$project_dir/." "$HOME/.claude/projects/$PROJECT_NAME/" 2>/dev/null || true
             done
-            echo "   ✅ Conversations saved to $HOME/.claude/projects"
+            echo "   ✅ Conversations saved to $HOME/.claude/projects/$PROJECT_NAME"
         fi
     fi
 
@@ -213,7 +218,7 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# Create dummy credentials (pipe directly, never write real creds to disk)
+# Create dummy credentials file (real creds never touch disk, only dummies)
 TEMP_CREDS=$(mktemp) || {
     echo "Failed to create temporary credentials file" >&2
     exit 1
@@ -235,6 +240,11 @@ docker_cmd=(
     -v "$(pwd):/workspace" -w /workspace
     -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
 )
+
+# Mount openeddir/planning as read-only if it exists
+if [[ -d "$(pwd)/openeddir/planning" ]]; then
+    docker_cmd+=(-v "$(pwd)/openeddir/planning:/workspace/openeddir/planning:ro")
+fi
 
 # Mount only specific files and directories from .claude (explicit allowlist)
 if [[ -d "$HOME/.claude" ]]; then
