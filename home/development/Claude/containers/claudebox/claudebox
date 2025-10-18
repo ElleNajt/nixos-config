@@ -239,6 +239,10 @@ if ! get-claude-credentials.sh 2> /dev/null | jq '
     TEMP_CREDS=""
 fi
 
+# Extract git config from host
+GIT_USER_NAME=$(git config --global --get user.name 2>/dev/null || echo "")
+GIT_USER_EMAIL=$(git config --global --get user.email 2>/dev/null || echo "")
+
 # Build docker command
 docker_cmd=(
     docker run --rm --name "$CONTAINER_NAME" -it
@@ -371,9 +375,11 @@ done
 
 docker_cmd+=("$DOCKER_IMAGE")
 
-# Pass flags to container
+# Pass flags and git config to container
 export RUN_BASH
 export ENABLE_FIREWALL
+export GIT_USER_NAME
+export GIT_USER_EMAIL
 
 # Run container with setup script
 "${docker_cmd[@]}" bash -c "
@@ -410,6 +416,14 @@ export ENABLE_FIREWALL
 
     # Ensure correct ownership
     chown -R node:node /home/node/.claude 2>/dev/null || true
+
+    # Configure git with host's user info
+    if [[ -n \"\$GIT_USER_NAME\" ]]; then
+        git config --global user.name \"\$GIT_USER_NAME\"
+    fi
+    if [[ -n \"\$GIT_USER_EMAIL\" ]]; then
+        git config --global user.email \"\$GIT_USER_EMAIL\"
+    fi
 
     # Initialize firewall if enabled
     if [[ \"$ENABLE_FIREWALL\" == \"true\" ]] && [[ -x /usr/local/bin/init-firewall.sh ]]; then
