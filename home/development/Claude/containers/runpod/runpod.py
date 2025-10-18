@@ -244,6 +244,7 @@ def ensure_host_in_known_hosts(config: Dict[str, str]) -> None:
     port = config["port"]
 
     ssh_dir = Path.home() / ".ssh"
+    ssh_dir.mkdir(mode=0o700, exist_ok=True)
     known_hosts = ssh_dir / "known_hosts"
 
     # Check if host is already in known_hosts
@@ -275,10 +276,42 @@ def ensure_host_in_known_hosts(config: Dict[str, str]) -> None:
         print(f"⚠️  Warning: Could not update known_hosts: {e}")
 
 
+def ensure_remote_dir_exists(config: Dict[str, str]) -> None:
+    """Ensure remote directory exists, create if missing."""
+    ensure_host_in_known_hosts(config)
+    ssh_key = validate_ssh_key_path(config["ssh_key"])
+
+    cmd = ["ssh"]
+
+    if ssh_key is not None:
+        cmd.extend(["-i", str(ssh_key)])
+
+    cmd.extend(["-p", config["port"]])
+    cmd.append(f"{config['user']}@{config['host']}")
+
+    # Use mkdir -p to create directory if it doesn't exist
+    cmd.append(f"mkdir -p {config['remote_dir']}")
+
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️  Warning: Could not create remote directory {config['remote_dir']}: {e}")
+    except FileNotFoundError:
+        print("❌ ssh command not found")
+        sys.exit(1)
+
+
 def run_ssh_command(
-    config: Dict[str, str], command: str, force_tty: bool = False
+    config: Dict[str, str], command: str, force_tty: bool = False, cwd: Optional[str] = None
 ) -> None:
-    """Run command on remote server via SSH."""
+    """Run command on remote server via SSH.
+
+    Args:
+        config: Configuration dictionary
+        command: Command to execute (if empty, opens interactive session)
+        force_tty: Force pseudo-TTY allocation for interactive commands
+        cwd: Working directory for command (defaults to remote_dir from config)
+    """
     ensure_host_in_known_hosts(config)
     ssh_key = validate_ssh_key_path(config["ssh_key"])
 
@@ -298,7 +331,18 @@ def run_ssh_command(
 
     # Only add command if it's not empty (for interactive sessions)
     if command.strip():
-        cmd.append(command)
+        # Warn if user is trying to edit files remotely
+        edit_commands = ["sed", "awk", "vim", "nano", "emacs", "vi"]
+        command_parts = command.split()
+        if command_parts and command_parts[0] in edit_commands:
+            print(f"⚠️  Warning: You're running '{command_parts[0]}' on the remote server")
+            print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+            print()
+
+        # Wrap command with cd to working directory (default to remote_dir)
+        working_dir = cwd if cwd is not None else config["remote_dir"]
+        wrapped_command = f"cd {working_dir} && {command}"
+        cmd.append(wrapped_command)
 
     try:
         subprocess.run(cmd, check=True)
@@ -537,7 +581,7 @@ def show_help() -> None:
     print("    runpod unmount [mount_point]   - Unmount SSHFS mount")
     print("    runpod push [source] [dest]    - Push directory to RunPod")
     print("    runpod pull [source] [dest]    - Pull directory from RunPod")
-    print("    runpod run 'command'           - Execute command on RunPod")
+    print("    runpod run [--cwd DIR] 'cmd'   - Execute command on RunPod (defaults to remote_dir)")
     print("    runpod python                  - Open interactive Python REPL on RunPod")
     print("    runpod config                  - Show current configuration")
     print("    runpod                         - Open interactive SSH session")
@@ -603,6 +647,8 @@ def main():
         dest_dir = (
             shlex.quote(sys.argv[3]) if len(sys.argv) > 3 else config["remote_dir"]
         )
+        # Ensure remote directory exists before pushing
+        ensure_remote_dir_exists(config)
         push_directory(config, source_dir, dest_dir)
     elif sys.argv[1] == "pull":
         source_dir = (
@@ -612,12 +658,27 @@ def main():
         pull_directory(config, source_dir, dest_dir)
     elif sys.argv[1] == "run":
         if len(sys.argv) < 3:
-            print("Usage: runpod run 'command to execute'")
+            print("Usage: runpod run [--cwd DIR] 'command to execute'")
             sys.exit(1)
+
+        # Parse optional --cwd flag
+        cwd = None
+        command_start_idx = 2
+
+        if sys.argv[2] == "--cwd":
+            if len(sys.argv) < 5:
+                print("Usage: runpod run --cwd DIR 'command to execute'")
+                sys.exit(1)
+            cwd = sys.argv[3]
+            command_start_idx = 4
+
+        # Ensure remote directory exists before running command
+        ensure_remote_dir_exists(config)
+
         # Intentionally allow arbitrary command execution on remote server
         # This is the core feature - let Claude/user run whatever they want
-        command = " ".join(sys.argv[2:])
-        run_ssh_command(config, command)
+        command = " ".join(sys.argv[command_start_idx:])
+        run_ssh_command(config, command, cwd=cwd)
     elif sys.argv[1] == "python":
         # Interactive Python REPL on remote server (needs TTY)
         run_ssh_command(config, "python3", force_tty=True)
