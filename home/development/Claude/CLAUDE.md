@@ -7,6 +7,8 @@
 
 @style.md
 
+@anti-sycophancy.md
+
 @research-journal.md
 
 @research-principles.md
