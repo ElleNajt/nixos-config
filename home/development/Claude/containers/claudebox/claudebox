@@ -303,23 +303,29 @@ if [[ -f "$(pwd)/.runpod_config.json" ]]; then
         if [[ -f "$RUNPOD_KEY" ]]; then
             echo "🔑 Setting up SSH agent container"
 
-            # Check if agent container is already running
-            if ! docker ps --format '{{.Names}}' | grep -q "^${SSH_AGENT_CONTAINER_NAME:-claudebox-ssh-agent}$"; then
-                echo "   Starting SSH agent container..."
-                docker run -d --name=claudebox-ssh-agent \
-                    -v "$SSH_AGENT_VOLUME:/ssh-agent" \
-                    "$SSH_AGENT_IMAGE" >/dev/null
-                SSH_AGENT_CONTAINER="claudebox-ssh-agent"
-                sleep 0.5  # Wait for agent to start
+            # Check if agent container exists
+            if docker ps -a --format '{{.Names}}' | grep -q "^claudebox-ssh-agent$"; then
+                # Container exists, check if it's running
+                if docker ps --format '{{.Names}}' | grep -q "^claudebox-ssh-agent$"; then
+                    echo "   ✓ SSH agent container already running"
+                else
+                    echo "   Starting existing SSH agent container..."
+                    docker start claudebox-ssh-agent >/dev/null
+                fi
             else
-                echo "   ✓ SSH agent container already running"
-                SSH_AGENT_CONTAINER="claudebox-ssh-agent"
+                # Container doesn't exist, create it
+                echo "   Creating SSH agent container..."
+                docker run -d --name=claudebox-ssh-agent \
+                    -v "$SSH_AGENT_VOLUME:/.ssh-agent" \
+                    "$SSH_AGENT_IMAGE" >/dev/null
+                sleep 1  # Wait for agent and socat to start
             fi
+            SSH_AGENT_CONTAINER="claudebox-ssh-agent"
 
             # Add RunPod key to agent (mount only the specific key file)
             echo "   Adding RunPod key to agent..."
             docker run --rm \
-                -v "$SSH_AGENT_VOLUME:/ssh-agent" \
+                -v "$SSH_AGENT_VOLUME:/.ssh-agent" \
                 -v "$RUNPOD_KEY:/tmp/runpod_key:ro" \
                 "$SSH_AGENT_IMAGE" \
                 ssh-add /tmp/runpod_key
@@ -327,8 +333,8 @@ if [[ -f "$(pwd)/.runpod_config.json" ]]; then
             echo "   ✓ SSH agent ready"
 
             # Mount agent volume and set env
-            docker_cmd+=(-v "$SSH_AGENT_VOLUME:/ssh-agent")
-            docker_cmd+=(-e "SSH_AUTH_SOCK=/ssh-agent/proxy-socket")
+            docker_cmd+=(-v "$SSH_AGENT_VOLUME:/.ssh-agent")
+            docker_cmd+=(-e "SSH_AUTH_SOCK=/.ssh-agent/proxy-socket")
         else
             echo "⚠️  RunPod SSH key not found: $RUNPOD_KEY"
         fi
