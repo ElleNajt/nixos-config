@@ -1,0 +1,3 @@
+[submodule "home/development/Claude/containers/proxies/ssh-agent"]
+	path = home/development/Claude/containers/proxies/ssh-agent
+	url = https://github.com/ElleNajt/ssh-agent.git
