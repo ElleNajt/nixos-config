@@ -332,12 +332,25 @@ def run_ssh_command(
     # Only add command if it's not empty (for interactive sessions)
     if command.strip():
         # Warn if user is trying to edit files remotely
-        edit_commands = ["sed", "awk", "vim", "nano", "emacs", "vi", "cat"]
+        # Check for interactive editors (always warn)
+        interactive_editors = ["vim", "nano", "emacs", "vi", "sed", "awk"]
         command_parts = command.split()
-        if command_parts and command_parts[0] in edit_commands:
+        warned = False
+
+        if command_parts and command_parts[0] in interactive_editors:
             print(f"⚠️  Warning: You're running '{command_parts[0]}' on the remote server")
             print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
             print()
+            warned = True
+
+        # Check for file write patterns (redirection, heredoc, tee)
+        if not warned and any(pattern in command for pattern in ['>>', '>', '<<', '| tee']):
+            # Likely writing/creating files
+            if any(cmd in command for cmd in ['cat', 'echo', 'printf', 'tee']):
+                print(f"⚠️  Warning: Detected file write pattern in command")
+                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
+                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print()
 
         # Wrap command with cd to working directory (default to remote_dir)
         working_dir = cwd if cwd is not None else config["remote_dir"]
