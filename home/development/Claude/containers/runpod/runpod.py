@@ -392,13 +392,47 @@ def run_ssh_command(
         sys.exit(1)
 
 
-def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
+def parse_rsync_stats(output: str) -> Tuple[int, int, int]:
+    """Parse rsync output to extract file counts."""
+    # Look for patterns like:
+    # Number of files: 123 (reg: 100, dir: 23)
+    # Number of created files: 5
+    # Number of deleted files: 0
+    # Number of regular files transferred: 10
+
+    total_files = 0
+    created = 0
+    transferred = 0
+
+    for line in output.split('\n'):
+        if 'Number of created files:' in line:
+            match = re.search(r'Number of created files:\s*(\d+)', line)
+            if match:
+                created = int(match.group(1))
+        elif 'Number of regular files transferred:' in line:
+            match = re.search(r'Number of regular files transferred:\s*(\d+)', line)
+            if match:
+                transferred = int(match.group(1))
+        elif 'Number of files:' in line and 'reg:' in line:
+            match = re.search(r'Number of files:\s*(\d+)', line)
+            if match:
+                total_files = int(match.group(1))
+
+    return (created, transferred, total_files)
+
+
+def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_run: bool = False) -> None:
     """Push directory to remote server via rsync."""
     ensure_host_in_known_hosts(config)
     source_path = validate_source_path(source_dir)
     ssh_key = validate_ssh_key_path(config["ssh_key"])
 
-    print(f"📤 Pushing {source_dir} to RunPod:{dest_dir}")
+    # Show clear direction
+    print(f"📤 Syncing: Local → Remote")
+    print(f"   Source: {source_dir}")
+    print(f"   Dest:   RunPod:{dest_dir}")
+    if dry_run:
+        print(f"   Mode:   DRY RUN (no changes will be made)")
 
     # Build SSH command for rsync
     if ssh_key is not None:
@@ -409,8 +443,12 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     cmd = [
         "rsync",
         "-avz",
+        "--stats",
         "--progress",
     ]
+
+    if dry_run:
+        cmd.append("--dry-run")
 
     # Add exclude patterns from .runpod_sync_ignore
     cmd.extend(get_rsync_excludes())
@@ -423,14 +461,26 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     ])
 
     try:
-        result = subprocess.run(cmd, check=False)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+
+        # Print rsync output
+        print(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
 
         # Handle rsync exit codes
         # 0 = success
         # 23 = partial transfer due to error (often permission warnings, but files transferred)
         # 24 = source files vanished before transfer
         if result.returncode == 0:
-            print("✅ Push complete")
+            # Parse stats
+            created, transferred, total = parse_rsync_stats(result.stdout)
+            if dry_run:
+                print(f"\n📊 Would sync: {transferred} files")
+            elif transferred > 0:
+                print(f"\n✅ Synced {transferred} files")
+            else:
+                print(f"\n✅ Already in sync (no changes)")
         elif result.returncode == 23:
             print("⚠️  Push complete with warnings (exit code 23: partial transfer)")
             print("   Files were transferred successfully, but some warnings occurred")
@@ -443,12 +493,29 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         sys.exit(1)
 
 
-def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> None:
+def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_run: bool = False) -> None:
     """Pull directory from remote server via rsync."""
     dest_path = validate_source_path(dest_dir)
     ssh_key = validate_ssh_key_path(config["ssh_key"])
 
-    print(f"📥 Pulling RunPod:{source_dir} to {dest_dir}")
+    # Ensure parent directory exists to prevent rsync creating wrong directory structure
+    # If dest_path doesn't exist and its parent doesn't exist, rsync creates dest_path as a directory
+    # Example: rsync remote:/file.json /local/results/file.json
+    #   If /local/results/ doesn't exist, rsync creates file.json as a DIRECTORY
+    #   and puts the file inside: /local/results/file.json/file.json
+    if not dest_path.exists():
+        parent = dest_path.parent
+        if not parent.exists():
+            if not dry_run:
+                print(f"📁 Creating parent directory: {parent}")
+                parent.mkdir(parents=True, exist_ok=True)
+
+    # Show clear direction
+    print(f"📥 Syncing: Remote → Local")
+    print(f"   Source: RunPod:{source_dir}")
+    print(f"   Dest:   {dest_dir}")
+    if dry_run:
+        print(f"   Mode:   DRY RUN (no changes will be made)")
 
     # Build SSH command for rsync
     if ssh_key is not None:
@@ -459,8 +526,12 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     cmd = [
         "rsync",
         "-avz",
+        "--stats",
         "--progress",
     ]
+
+    if dry_run:
+        cmd.append("--dry-run")
 
     # Add exclude patterns from .runpod_sync_ignore
     cmd.extend(get_rsync_excludes())
@@ -473,14 +544,26 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     ])
 
     try:
-        result = subprocess.run(cmd, check=False)
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+
+        # Print rsync output
+        print(result.stdout)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
 
         # Handle rsync exit codes
         # 0 = success
         # 23 = partial transfer due to error (often permission warnings, but files transferred)
         # 24 = source files vanished before transfer
         if result.returncode == 0:
-            print("✅ Pull complete")
+            # Parse stats
+            created, transferred, total = parse_rsync_stats(result.stdout)
+            if dry_run:
+                print(f"\n📊 Would sync: {transferred} files")
+            elif transferred > 0:
+                print(f"\n✅ Synced {transferred} files")
+            else:
+                print(f"\n✅ Already in sync (no changes)")
         elif result.returncode == 23:
             print("⚠️  Pull complete with warnings (exit code 23: partial transfer)")
             print("   Files were transferred successfully, but some warnings occurred")
@@ -491,6 +574,38 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     except FileNotFoundError:
         print("❌ rsync command not found")
         sys.exit(1)
+
+
+def show_status(config: Dict[str, str]) -> None:
+    """Show sync status between local and remote."""
+    print("📊 Checking sync status...")
+    print()
+
+    # Default paths
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        local_dir = result.stdout.strip()
+    except:
+        local_dir = "."
+
+    remote_dir = config["remote_dir"]
+
+    # Check Local → Remote (what would push do?)
+    print(f"📤 Local → Remote status:")
+    print(f"   Checking: {local_dir} → RunPod:{remote_dir}")
+    push_directory(config, local_dir, remote_dir, dry_run=True)
+
+    print()
+
+    # Check Remote → Local (what would pull do?)
+    print(f"📥 Remote → Local status:")
+    print(f"   Checking: RunPod:{remote_dir} → {local_dir}")
+    pull_directory(config, remote_dir, local_dir, dry_run=True)
 
 
 def show_config(config: Dict[str, str], config_file: Path) -> None:
@@ -612,15 +727,18 @@ def show_help() -> None:
     print("=" * 50)
     print()
     print("Usage:")
-    print("  SSH Commands (requires .runpod_config.json):")
-    print(
-        "    runpod mount [mount_point]     - Mount remote directory via SSHFS (default: ./.runpod-mount)"
-    )
+    print("  Sync Commands:")
+    print("    runpod status                  - Show what files are out of sync")
+    print("    runpod push [src] [dest]       - Push files to RunPod (default: git repo → remote_dir)")
+    print("    runpod pull [src] [dest]       - Pull files from RunPod (default: remote_dir → git repo)")
+    print()
+    print("  Execution Commands:")
+    print("    runpod run \"command\"            - Run command on RunPod (from remote_dir)")
+    print("    runpod python                  - Interactive Python REPL on RunPod")
+    print()
+    print("  Other Commands:")
+    print("    runpod mount [mount_point]     - Mount remote directory via SSHFS (default: ./.runpod-mount)")
     print("    runpod unmount [mount_point]   - Unmount SSHFS mount")
-    print("    runpod push [source] [dest]    - Push directory to RunPod")
-    print("    runpod pull [source] [dest]    - Pull directory from RunPod")
-    print("    runpod run [--cwd DIR] 'cmd'   - Execute command on RunPod (defaults to remote_dir)")
-    print("    runpod python                  - Open interactive Python REPL on RunPod")
     print("    runpod config                  - Show current configuration")
     print("    runpod                         - Open interactive SSH session")
     print()
@@ -671,6 +789,8 @@ def main():
         run_ssh_command(config, "")
     elif sys.argv[1] == "config":
         show_config(config, config_file)
+    elif sys.argv[1] == "status":
+        show_status(config)
     elif sys.argv[1] == "help" or sys.argv[1] == "--help" or sys.argv[1] == "-h":
         show_help()
     elif sys.argv[1] == "mount":
