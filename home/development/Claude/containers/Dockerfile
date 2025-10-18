@@ -108,6 +108,6 @@ RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
 # Copy runpod script and install Python dependencies
 COPY runpod/runpod.py /usr/local/bin/runpod
 RUN chmod +x /usr/local/bin/runpod && \
-  pip3 install --no-cache-dir boto3 requests python-dotenv runpod --break-system-packages
+  pip3 install --no-cache-dir boto3 requests python-dotenv --break-system-packages
 
 USER node
