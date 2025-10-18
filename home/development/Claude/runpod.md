@@ -1,8 +1,13 @@
 # RunPod Deployment
 
+**IMPORTANT: ALL GPU-RELATED CODE MUST RUN ON RUNPOD, NOT LOCALLY.**
+
 When working with projects that need GPU resources, use the `runpod push` command
 to push the code over, and then run it with `runpod run`. Avoid editing code remotely, do it
 locally and then push. You can pull the results back with `runpod pull`.
+
+Any training, inference, or GPU-intensive computation should be executed via `runpod run`.
+Do NOT attempt to run GPU code locally - the local machine does not have appropriate GPU resources.
 
 **Key features:**
 - Commands automatically run from `remote_dir` (no need to manually `cd`)
@@ -59,9 +64,12 @@ locally and then push. You can pull the results back with `runpod pull`.
 ```bash
 cd ~/code/investigatingOwlalignment  # Or any subdirectory in the repo
 runpod push                          # Syncs entire git repo to remote_dir
-runpod run "python train.py"         # Runs from remote_dir automatically
+runpod run "python train.py"         # Run GPU training on RunPod (NOT locally!)
 runpod pull results/ ./results/      # Pull results back to local
 ```
+
+**Remember:** Any script that uses PyTorch, JAX, TensorFlow, CUDA, or performs training/inference
+MUST be run via `runpod run`, not executed locally.
 
 **More examples:**
 ```bash
