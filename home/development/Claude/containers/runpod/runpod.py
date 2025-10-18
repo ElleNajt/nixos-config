@@ -642,7 +642,23 @@ def main():
         mount_point = sys.argv[2] if len(sys.argv) > 2 else None
         unmount_directory(mount_point)
     elif sys.argv[1] == "push":
-        source_dir = sys.argv[2] if len(sys.argv) > 2 else "."
+        # Default to git repo root if no source specified
+        if len(sys.argv) > 2:
+            source_dir = sys.argv[2]
+        else:
+            try:
+                # Find git repository root
+                result = subprocess.run(
+                    ["git", "rev-parse", "--show-toplevel"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                source_dir = result.stdout.strip()
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                # Not in a git repo, fall back to current directory
+                source_dir = "."
+
         # Quote command line dest_dir for consistency with config values
         dest_dir = (
             shlex.quote(sys.argv[3]) if len(sys.argv) > 3 else config["remote_dir"]
@@ -654,7 +670,24 @@ def main():
         source_dir = (
             shlex.quote(sys.argv[2]) if len(sys.argv) > 2 else config["remote_dir"]
         )
-        dest_dir = sys.argv[3] if len(sys.argv) > 3 else "."
+
+        # Default to git repo root if no dest specified
+        if len(sys.argv) > 3:
+            dest_dir = sys.argv[3]
+        else:
+            try:
+                # Find git repository root
+                result = subprocess.run(
+                    ["git", "rev-parse", "--show-toplevel"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                dest_dir = result.stdout.strip()
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                # Not in a git repo, fall back to current directory
+                dest_dir = "."
+
         pull_directory(config, source_dir, dest_dir)
     elif sys.argv[1] == "run":
         if len(sys.argv) < 3:
