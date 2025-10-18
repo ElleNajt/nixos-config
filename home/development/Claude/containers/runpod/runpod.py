@@ -43,6 +43,69 @@ def find_config() -> Optional[Path]:
         return None
 
 
+def find_sync_ignore() -> Optional[Path]:
+    """Find .runpod_sync_ignore in current directory or git repository root."""
+    # First check current directory
+    cwd_ignore = Path.cwd() / ".runpod_sync_ignore"
+    if cwd_ignore.is_file():
+        return cwd_ignore
+
+    try:
+        # Find git repository root
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        repo_root = Path(result.stdout.strip())
+        ignore_file = repo_root / ".runpod_sync_ignore"
+        return ignore_file if ignore_file.is_file() else None
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Not in a git repo or git not available
+        return None
+
+
+def load_sync_ignore() -> List[str]:
+    """Load exclude patterns from .runpod_sync_ignore file.
+
+    Returns list of patterns to exclude. Defaults to just .git/ if no file exists.
+    """
+    # Default excludes if no ignore file exists
+    default_excludes = [
+        ".git/",
+    ]
+
+    ignore_file = find_sync_ignore()
+
+    if ignore_file is None:
+        # No ignore file found, use defaults
+        return default_excludes
+
+    # Read patterns from file
+    patterns = []
+    try:
+        with open(ignore_file) as f:
+            for line in f:
+                line = line.strip()
+                # Skip empty lines and comments
+                if line and not line.startswith("#"):
+                    patterns.append(line)
+    except Exception as e:
+        logging.warning(f"Could not read {ignore_file}: {e}")
+        return default_excludes
+
+    return patterns
+
+
+def get_rsync_excludes() -> List[str]:
+    """Build rsync exclude flags from sync ignore patterns."""
+    excludes = []
+    for pattern in load_sync_ignore():
+        excludes.extend(["--exclude", pattern])
+    return excludes
+
+
 def load_config(config_file: Path) -> Dict[str, str]:
     """Load and validate JSON configuration."""
     # Security check: ensure config file is a regular file, not a symlink/device
@@ -265,19 +328,17 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "rsync",
         "-avz",
         "--progress",
-        # Exclude sensitive files
-        "--exclude=*.key",  # No key files
-        "--exclude=*.pem",  # No PEM files
-        "--exclude=.ssh/",  # No SSH keys
-        "--exclude=__pycache__/",  # No Python cache
-        "--exclude=.git/",  # No git directory
-        "--exclude=venv/",  # No venv (created on remote)
-        "--exclude=.direnv/",  # No direnv
+    ]
+
+    # Add exclude patterns from .runpod_sync_ignore
+    cmd.extend(get_rsync_excludes())
+
+    cmd.extend([
         "-e",
         ssh_cmd,
         f"{shlex.quote(str(source_path))}/",
         f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
-    ]
+    ])
 
     try:
         subprocess.run(cmd, check=True)
@@ -308,19 +369,17 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
         "rsync",
         "-avz",
         "--progress",
-        # Exclude sensitive files
-        "--exclude=*.key",  # No key files
-        "--exclude=*.pem",  # No PEM files
-        "--exclude=.ssh/",  # No SSH keys
-        "--exclude=__pycache__/",  # No Python cache
-        "--exclude=.git/",  # No git directory
-        "--exclude=venv/",  # No venv (created on remote)
-        "--exclude=.direnv/",  # No direnv
+    ]
+
+    # Add exclude patterns from .runpod_sync_ignore
+    cmd.extend(get_rsync_excludes())
+
+    cmd.extend([
         "-e",
         ssh_cmd,
         f"{config['user']}@{config['host']}:{shlex.quote(source_dir)}",
         f"{shlex.quote(str(dest_path))}/",
-    ]
+    ])
 
     try:
         subprocess.run(cmd, check=True)
@@ -487,6 +546,11 @@ def show_help() -> None:
     print('    "ssh_key": "~/.ssh/runpod_key",')
     print('    "remote_dir": "/workspace/your-project/"')
     print("  }")
+    print()
+    print("Sync Ignore Configuration:")
+    print("  Create .runpod_sync_ignore to customize what files to exclude")
+    print("  (one pattern per line, # for comments)")
+    print("  Default: only .git/ is excluded")
 
 
 def main():
