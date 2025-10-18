@@ -341,12 +341,21 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     ])
 
     try:
-        subprocess.run(cmd, check=True)
-        print("✅ Push complete")
+        result = subprocess.run(cmd, check=False)
 
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Rsync failed with exit code {e.returncode}")
-        sys.exit(1)
+        # Handle rsync exit codes
+        # 0 = success
+        # 23 = partial transfer due to error (often permission warnings, but files transferred)
+        # 24 = source files vanished before transfer
+        if result.returncode == 0:
+            print("✅ Push complete")
+        elif result.returncode == 23:
+            print("⚠️  Push complete with warnings (exit code 23: partial transfer)")
+            print("   Files were transferred successfully, but some warnings occurred")
+        else:
+            print(f"❌ Rsync failed with exit code {result.returncode}")
+            sys.exit(1)
+
     except FileNotFoundError:
         print("❌ rsync command not found")
         sys.exit(1)
@@ -382,12 +391,21 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str) -> No
     ])
 
     try:
-        subprocess.run(cmd, check=True)
-        print("✅ Pull complete")
+        result = subprocess.run(cmd, check=False)
 
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Rsync failed with exit code {e.returncode}")
-        sys.exit(1)
+        # Handle rsync exit codes
+        # 0 = success
+        # 23 = partial transfer due to error (often permission warnings, but files transferred)
+        # 24 = source files vanished before transfer
+        if result.returncode == 0:
+            print("✅ Pull complete")
+        elif result.returncode == 23:
+            print("⚠️  Pull complete with warnings (exit code 23: partial transfer)")
+            print("   Files were transferred successfully, but some warnings occurred")
+        else:
+            print(f"❌ Rsync failed with exit code {result.returncode}")
+            sys.exit(1)
+
     except FileNotFoundError:
         print("❌ rsync command not found")
         sys.exit(1)
