@@ -4,7 +4,7 @@ When conducting research experiments (training runs, data analysis, evaluations,
 
 ## Results Organization
 
-Save all experiment results to a structured directory:
+**CRITICAL: When writing code for experiments, always configure output paths to save to:**
 ```
 /results/{commithash}_{date}/
 ```
@@ -14,7 +14,14 @@ Save all experiment results to a structured directory:
 - `date`: ISO format YYYY-MM-DD (e.g., `2025-10-17`)
 - Example: `/results/a1b2c3d_2025-10-17/`
 
-**What to save:**
+**This means:**
+- Set `--output-dir`, `--save-dir`, `--checkpoint-dir` arguments to this path
+- Configure logging to write to `{results_dir}/train.log`
+- Save plots/visualizations to `{results_dir}/figures/`
+- Copy config files to `{results_dir}/config.yaml`
+- All model checkpoints go to `{results_dir}/checkpoints/`
+
+**What should be saved there:**
 - Model checkpoints
 - Training logs and metrics
 - Evaluation results
@@ -26,6 +33,7 @@ Save all experiment results to a structured directory:
 - Git hash links results to exact code version
 - Date provides chronological ordering
 - Easy to reproduce: `git checkout a1b2c3d` + check config
+- All experiment artifacts in one place
 
 ## Research Journal
 
@@ -110,11 +118,11 @@ git commit -m "Increase learning rate to 5e-4"
 HASH=$(git rev-parse --short HEAD)  # e.g., a1b2c3d
 DATE=$(date +%Y-%m-%d)              # e.g., 2025-10-17
 
-# 2. Create results directory
-mkdir -p /results/${HASH}_${DATE}
-cp config.yaml /results/${HASH}_${DATE}/
+# 2. Update code to use results directory
+# Edit train.py to set output_dir = f"/workspace/results/{HASH}_{DATE}"
+# OR pass as command-line argument
 
-# 3. Run experiment
+# 3. Run experiment (code automatically saves to correct directory)
 runpod push
 runpod run "python train.py --output-dir /workspace/results/${HASH}_${DATE}"
 
@@ -128,6 +136,9 @@ runpod pull results/${HASH}_${DATE}/ ./results/${HASH}_${DATE}/
 git add research_journal.org
 git commit -m "Journal: Higher LR experiment (${HASH})"
 ```
+
+**Key point:** The training script itself should save all outputs to the results directory.
+Don't manually copy files afterward - configure the code to write there directly.
 
 ## Important Notes
 
