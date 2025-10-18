@@ -9,6 +9,8 @@
 
 @research-journal.md
 
+@research-principles.md
+
 @runpod.md
 
 @core-principles.md
