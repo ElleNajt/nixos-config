@@ -9,6 +9,10 @@ locally and then push. You can pull the results back with `runpod pull`.
 Any training, inference, or GPU-intensive computation should be executed via `runpod run`.
 Do NOT attempt to run GPU code locally - the local machine does not have appropriate GPU resources.
 
+**NEVER edit files remotely via `runpod run "cat > file.py << EOF"` or similar patterns.**
+Always edit locally using the Edit/Write tools, then use `runpod push` to sync changes.
+The tool will warn you if you try to run sed/awk/vim/nano/emacs remotely.
+
 **Key features:**
 - Commands automatically run from `remote_dir` (no need to manually `cd`)
 - `runpod push` syncs the entire git repo by default (not just current directory)
