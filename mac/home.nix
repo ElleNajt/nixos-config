@@ -54,6 +54,7 @@
   rlwrap
   aider-chat
   runpodctl
+  socat
 
   ruff
   samba
