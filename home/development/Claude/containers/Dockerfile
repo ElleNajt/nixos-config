@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   jq \
   nano \
   vim \
+  emacs \
   fuse-overlayfs \
   python3 \
   python3-pip \
@@ -100,6 +101,11 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 COPY emacs/claude-code-hook-wrapper.sh /usr/local/bin/claude-code-hook-wrapper
 RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
 
+# Copy fallback checker hook
+COPY emacs/check-fallbacks.py /usr/local/bin/check-fallbacks.py
+COPY emacs/check-fallbacks.sh /usr/local/bin/check-fallbacks.sh
+RUN chmod +x /usr/local/bin/check-fallbacks.py /usr/local/bin/check-fallbacks.sh
+
 # Install uv (fast Python package manager) - system-wide
 # RUN curl -LsSf https://astral.sh/uv/install.sh | env INSTALLER_NO_MODIFY_PATH=1 sh && \
 #   mv /root/.cargo/bin/uv /usr/local/bin/ && \
@@ -108,6 +114,15 @@ RUN chmod +x /usr/local/bin/claude-code-hook-wrapper
 # Copy runpod script and install Python dependencies
 COPY runpod/runpod.py /usr/local/bin/runpod
 RUN chmod +x /usr/local/bin/runpod && \
-  pip3 install --no-cache-dir boto3 requests python-dotenv --break-system-packages
+  pip3 install --no-cache-dir boto3 requests python-dotenv matplotlib pandas numpy scipy scikit-learn pillow seaborn tensorboard --break-system-packages
 
 USER node
+
+# Configure pip to default to --user installs for the node user
+RUN mkdir -p /home/node/.config/pip && \
+  echo "[install]" > /home/node/.config/pip/pip.conf && \
+  echo "user = true" >> /home/node/.config/pip/pip.conf && \
+  mkdir -p /home/node/.local/bin
+
+# Add user's local bin to PATH
+ENV PATH="/home/node/.local/bin:${PATH}"

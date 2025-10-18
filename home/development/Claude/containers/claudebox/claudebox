@@ -345,6 +345,30 @@ else
     echo "📝 No .runpod_config.json found in $(pwd)"
 fi
 
+# Mount security-sensitive files as read-only to prevent tampering
+# Git hooks - prevent malicious hook injection
+if [[ -d "$(pwd)/.git/hooks" ]]; then
+    docker_cmd+=(-v "$(pwd)/.git/hooks:/workspace/.git/hooks:ro")
+fi
+
+# Git config - prevent tampering with git settings (user, remotes, etc.)
+if [[ -f "$(pwd)/.git/config" ]]; then
+    docker_cmd+=(-v "$(pwd)/.git/config:/workspace/.git/config:ro")
+fi
+
+# SSH directory - prevent key/config tampering
+if [[ -d "$(pwd)/.ssh" ]]; then
+    docker_cmd+=(-v "$(pwd)/.ssh:/workspace/.ssh:ro")
+fi
+
+# Environment files - prevent credential modification
+for envfile in "$(pwd)"/.env*; do
+    if [[ -f "$envfile" ]]; then
+        filename=$(basename "$envfile")
+        docker_cmd+=(-v "$envfile:/workspace/$filename:ro")
+    fi
+done
+
 docker_cmd+=("$DOCKER_IMAGE")
 
 # Pass flags to container
