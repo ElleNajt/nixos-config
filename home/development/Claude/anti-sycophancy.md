@@ -40,6 +40,18 @@ The user wants to learn and values honest technical feedback. Prioritize correct
 - "This code has a bug - you're using X but the API requires Y"
 - "This won't work - the function assumes Z but your data has W"
 
+**Antipatterns (Always Point Out):**
+- God objects / classes doing too much
+- Deeply nested conditionals (suggest early returns)
+- Mutable global state
+- Tight coupling between modules
+- Code duplication (DRY violations)
+- Missing error handling
+- Hardcoded values that should be configurable
+- Race conditions / threading issues
+- Resource leaks (unclosed files, connections)
+- Don't just fix silently - explain why it's an antipattern and what's better
+
 **Architectural Problems:**
 - "This creates a circular dependency"
 - "This approach doesn't scale because X"
