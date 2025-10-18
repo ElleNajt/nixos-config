@@ -333,7 +333,7 @@ def run_ssh_command(
     if command.strip():
         # Warn if user is trying to edit files remotely
         # Check for interactive editors (always warn)
-        interactive_editors = ["vim", "nano", "emacs", "vi", "sed", "awk"]
+        interactive_editors = ["vim", "nano", "emacs", "vi", "ed", "ex", "sed", "awk"]
         command_parts = command.split()
         warned = False
 
@@ -351,6 +351,31 @@ def run_ssh_command(
                 print(f"   Command appears to create/modify files remotely: {command[:60]}...")
                 print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
                 print()
+                warned = True
+
+        # Check for language one-liners that write files
+        if not warned:
+            # Python one-liners: python -c "open(...,'w')"
+            if ('python -c' in command or 'python3 -c' in command) and 'open(' in command and ("'w'" in command or '"w"' in command):
+                print(f"⚠️  Warning: Detected Python one-liner writing files")
+                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
+                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print()
+                warned = True
+            # Perl one-liners: perl -e with file operations
+            elif 'perl -e' in command and ('open(' in command or 'open (' in command):
+                print(f"⚠️  Warning: Detected Perl one-liner writing files")
+                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
+                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print()
+                warned = True
+            # Ruby one-liners: ruby -e with File.write
+            elif 'ruby -e' in command and 'File.write' in command:
+                print(f"⚠️  Warning: Detected Ruby one-liner writing files")
+                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
+                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print()
+                warned = True
 
         # Wrap command with cd to working directory (default to remote_dir)
         working_dir = cwd if cwd is not None else config["remote_dir"]
