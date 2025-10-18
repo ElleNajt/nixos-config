@@ -25,11 +25,11 @@ Generate a dedicated SSH key just for RunPod (don't reuse your main keys):
 ssh-keygen -t ed25519 -f ~/.ssh/runpod_key -C "runpod-dedicated"
 #+end_src
 
-*Security Note:* When using =claudebox=, the SSH key never enters the container. Instead, =claudebox= starts an isolated SSH agent on your host that only has this RunPod key loaded, then forwards the agent socket to the container. This means:
+*Security Note:* When using =claudebox=, the SSH key never enters the container. Instead, =claudebox= starts an isolated SSH agent Docker container on your host that only has this RunPod key loaded, then forwards the agent socket to your main container. This means:
 - ✅ Private key stays on your host machine
 - ✅ Container cannot extract key material (only signatures via agent)
 - ✅ Agent is isolated from your other SSH keys (GitHub, work, etc.)
-- ✅ Agent dies when container exits (no persistent access)
+- ✅ Agent container persists for performance but only contains RunPod key (can be stopped with =docker rm -f claudebox-ssh-agent=)
 
 ** 3. Create .runpod_config.json
 
@@ -45,7 +45,7 @@ Create =.runpod_config.json= in your project root (or git repository root):
 }
 #+end_src
 
-*Important:* When running inside the claudebox container, this file is mounted read-only for security. Edit it from your host machine.
+*Security:* When running inside the claudebox container, this file is automatically mounted read-only to prevent tampering. You must edit it from your host machine. This prevents Claude from being tricked into connecting to malicious servers.
 
 ** 4. Add Script to PATH
 
@@ -186,26 +186,35 @@ In my opinion this is reasonably safe as long as nothing sensitive ends up on th
 
 1. *Prevent sensitive data from entering the container:*
    - Intercepting proxy prevents Claude credentials from entering the container (unclear if this matters)
-   - ✅ *SSH key protection via isolated agent:* Private key never enters container. Claudebox starts isolated SSH agent on host with only RunPod key, forwards agent socket read-only. Container can authenticate to RunPod but cannot extract key material or use other keys.
+   - ✅ *SSH key protection via isolated agent:* Private key never enters container. Claudebox starts isolated SSH agent Docker container on host with only RunPod key, forwards agent socket read-only. Container can authenticate to RunPod but cannot extract key material or use other keys.
    - Only provide read-only tokens (e.g., HuggingFace)
 
 2. *Container firewall:* Security theater without a matching firewall on the RunPod side. Even with both, connections to GitHub/HuggingFace could be used to exfiltrate secrets via issues/etc. Still, probably useful.
 
-3. *Read-only =.runpod_config.json=:* Container mounts the config as read-only, requiring edits outside the container. Makes it harder to SSH to the wrong machine, unless claude is in yolo mode. With firewall enabled, the IP address in the config gets allowlisted.
+3. *Read-only sensitive file mounts:* Container automatically remounts security-sensitive files as read-only:
+   - =.runpod_config.json= - Prevents tampering with SSH connection details
+   - =.git/hooks/= - Prevents malicious git hook injection
+   - =.git/config= - Prevents tampering with git settings (user, remotes)
+   - =.ssh/= - Prevents SSH key/config tampering
+   - =.env*= - Prevents credential file modification
+   These files require editing from host machine. With firewall enabled, the IP in runpod config gets allowlisted.
 
 4. *Layered filesystem:* Push to GitHub from home machine, not from container. Keeps git credentials on host.
+
+5. *Resource limits:* Container limited to 2GB RAM and 2 CPU cores to reduce attack surface.
 
 ** SSH Agent Implementation Details
 
 The =claudebox= script implements SSH key protection via isolated agent forwarding:
 
-1. *Agent isolation:* When =.runpod_config.json= is detected, claudebox starts a fresh =ssh-agent= process separate from your main agent
-2. *Single key loading:* Only the RunPod key specified in config is loaded (via =ssh-add=)
-3. *Socket forwarding:* Agent socket mounted read-only into container at =/ssh-agent=
-4. *Environment setup:* =SSH_AUTH_SOCK= set in container to use forwarded socket
-5. *Automatic cleanup:* Agent process killed when container exits
+1. *Agent isolation:* When =.runpod_config.json= is detected, claudebox starts or reuses a dedicated Docker container (=claudebox-ssh-agent=) running =ssh-agent= + =socat= for socket forwarding
+2. *Container persistence:* Agent container persists across claudebox sessions for performance (shared between multiple project containers)
+3. *Single key loading:* Only the RunPod key specified in config is loaded into the agent (via =ssh-add=)
+4. *Socket forwarding:* Agent socket mounted into main container via shared Docker volume at =/.ssh-agent/proxy-socket=
+5. *Environment setup:* =SSH_AUTH_SOCK= set in container to use forwarded socket
+6. *Read-only key mount:* SSH private key briefly mounted read-only when adding to agent, never enters main container
 
-This prevents key exfiltration while allowing legitimate SSH operations (ssh, rsync, sshfs) to work transparently.
+This prevents key exfiltration while allowing legitimate SSH operations (ssh, rsync, sshfs) to work transparently. The agent container can be manually stopped with =docker rm -f claudebox-ssh-agent= if needed.
 
 ** TODOs
 
