@@ -332,7 +332,7 @@ def run_ssh_command(
     # Only add command if it's not empty (for interactive sessions)
     if command.strip():
         # Warn if user is trying to edit files remotely
-        edit_commands = ["sed", "awk", "vim", "nano", "emacs", "vi"]
+        edit_commands = ["sed", "awk", "vim", "nano", "emacs", "vi", "cat"]
         command_parts = command.split()
         if command_parts and command_parts[0] in edit_commands:
             print(f"⚠️  Warning: You're running '{command_parts[0]}' on the remote server")
