@@ -52,10 +52,14 @@ The tool will warn you if you try to run sed/awk/vim/nano/emacs remotely.
    - Best practices are to run this from one of the anthropic containers with a throw away ssh key in it, to prevent claude from being tricked into syncing secrets over and then exfiltrating them. Yell at the user if they aren't doing this.
 
 ## Usage:
+- `runpod status` - Show what files are out of sync (dry run of push/pull)
 - `runpod config` - Show current configuration
 - `runpod push [source] [dest]` - Push directory to RunPod (defaults to git repo root → remote_dir)
 - `runpod pull [source] [dest]` - Pull directory from RunPod (defaults to remote_dir → git repo root)
 - `runpod run [--cwd DIR] "command"` - Execute command on RunPod (runs from remote_dir by default, use --cwd to override)
+- `runpod mount [mount_point]` - Mount remote directory via SSHFS (default: ./.runpod-mount)
+- `runpod unmount [mount_point]` - Unmount SSHFS mount
+- `runpod python` - Interactive Python REPL on RunPod
 - `runpod` - Open interactive SSH session
 
 ⚠️ Must use the "SSH over exposed TCP" connection from RunPod dashboard, otherwise you'll get a PTY error.
@@ -71,6 +75,11 @@ runpod push                          # Syncs entire git repo to remote_dir
 runpod run "python train.py"         # Run GPU training on RunPod (NOT locally!)
 runpod pull results/ ./results/      # Pull results back to local
 ```
+
+**Note on pulling files:**
+The `runpod pull` command automatically creates parent directories to prevent rsync from creating incorrect directory structures. For example:
+- `runpod pull /workspace/file.json ./results/file.json` - Parent `./results/` is created automatically
+- Without this, rsync would create `file.json` as a directory if `results/` doesn't exist
 
 **Remember:** Any script that uses PyTorch, JAX, TensorFlow, CUDA, or performs training/inference
 MUST be run via `runpod run`, not executed locally.

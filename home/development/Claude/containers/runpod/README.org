@@ -76,6 +76,7 @@ Claude instructions are in =nixos-config/home/development/Claude/runpod.md=
 
 ** SSH Commands (requires .runpod_config.json)
 
+- =runpod status= - Show what files are out of sync (dry run of push/pull)
 - =runpod mount [mount_point]= - Mount remote directory via SSHFS (default: ./.runpod-mount)
 - =runpod unmount [mount_point]= - Unmount SSHFS mount
 - =runpod config= - Show current configuration
