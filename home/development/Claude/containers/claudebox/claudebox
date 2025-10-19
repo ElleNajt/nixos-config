@@ -2,7 +2,6 @@
 set -euo pipefail
 
 DOCKER_IMAGE="claude-code-devcontainer"
-CONTAINER_NAME="claude-code-auth-$$-$(date +%s)"
 
 CLAUDEBOX_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONTAINER_DIR="$(dirname "$CLAUDEBOX_DIR")"
@@ -14,6 +13,21 @@ CURRENT_DIR="$(pwd)"
 # e.g., /Users/elle/code/project/subdir -> code-project-subdir
 PROJECT_NAME="${CURRENT_DIR#$HOME/}" # Remove home directory prefix
 PROJECT_NAME="${PROJECT_NAME//\//-}" # Replace all / with -
+
+# Check for exec subcommand
+EXEC_MODE=false
+if [[ $# -gt 0 ]] && [[ "$1" == "exec" ]]; then
+    EXEC_MODE=true
+    shift
+    EXEC_COMMAND=("$@")
+fi
+
+# Set container name based on mode
+if [[ "$EXEC_MODE" == "true" ]]; then
+    CONTAINER_NAME="claudebox-${PROJECT_NAME}"
+else
+    CONTAINER_NAME="claude-code-auth-$$-$(date +%s)"
+fi
 
 # Initialize variables
 CLAUDE_ARGS=()
@@ -61,12 +75,27 @@ USAGE:
     cd /path/to/your/project
     claudebox [OPTIONS] [CLAUDE_OPTIONS]
 
+    Or use exec mode for persistent containers (for agent-shell integration):
+
+    claudebox exec [COMMAND...]
+
 OPTIONS:
     --mount-claude-md Mount your real CLAUDE.md file (default: none)
     --bash            Run bash instead of claude
     --verbose         Enable verbose proxy logging
     --firewall        Enable firewall (blocks most network access)
     --help            Show this help
+
+EXEC MODE:
+    The exec subcommand creates/reuses a persistent container per project directory.
+    Container name is based on the current directory path.
+
+    Examples:
+        claudebox exec claude-code-acp    # Run ACP server
+        claudebox exec bash                # Interactive shell
+
+    For agent-shell in Emacs:
+        (setq agent-shell-anthropic-claude-command '("claudebox" "exec" "claude-code-acp"))
 
 WORKSPACE:
     The current directory becomes /workspace in the container.
@@ -76,6 +105,7 @@ EXAMPLES:
     cd ~/my-project && claudebox
     cd ~/my-project && claudebox --mount-claude-md -p "hello world"
     cd ~/my-project && claudebox --continue
+    cd ~/my-project && claudebox exec claude-code-acp
 EOF
             exit 0
             ;;
@@ -103,6 +133,24 @@ SSH_AGENT_IMAGE="claudebox-ssh-agent"
 if ! docker image inspect "$SSH_AGENT_IMAGE" > /dev/null 2>&1; then
     [[ "$VERBOSE" == "true" ]] && echo "🔨 Building SSH agent image..."
     docker build -t "$SSH_AGENT_IMAGE" -f "$CONTAINER_DIR/proxies/ssh-agent/Dockerfile" "$CONTAINER_DIR/proxies/ssh-agent" || exit 1
+fi
+
+# Handle exec mode
+if [[ "$EXEC_MODE" == "true" ]]; then
+    # Check if container is running
+    if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        # Container is running, exec into it
+        exec docker exec -i "$CONTAINER_NAME" "${EXEC_COMMAND[@]}"
+    fi
+
+    # Container not running - check if it exists but is stopped
+    if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        # Container exists but stopped, start it
+        docker start "$CONTAINER_NAME" > /dev/null
+        exec docker exec -i "$CONTAINER_NAME" "${EXEC_COMMAND[@]}"
+    fi
+
+    # Container doesn't exist - will be created below (continue with setup)
 fi
 
 # Find an available port
@@ -211,7 +259,10 @@ cleanup() {
     fi
 
     # Remove container (but NOT the proxy - it's shared!)
-    docker rm -f "$CONTAINER_NAME" 2> /dev/null || true
+    # Skip removal if in exec mode (persistent containers)
+    if [[ "$EXEC_MODE" != "true" ]]; then
+        docker rm -f "$CONTAINER_NAME" 2> /dev/null || true
+    fi
 
     # Clean up temporary files
     rm -f "$TEMP_CREDS" 2> /dev/null || true
@@ -244,13 +295,25 @@ GIT_USER_NAME=$(git config --global --get user.name 2>/dev/null || echo "")
 GIT_USER_EMAIL=$(git config --global --get user.email 2>/dev/null || echo "")
 
 # Build docker command
-docker_cmd=(
-    docker run --rm --name "$CONTAINER_NAME" -it
-    --memory="2g"
-    --cpus="2"
-    -v "$(pwd):/workspace" -w /workspace
-    -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
-)
+if [[ "$EXEC_MODE" == "true" ]]; then
+    # Exec mode: detached container that persists
+    docker_cmd=(
+        docker run -d --name "$CONTAINER_NAME"
+        --memory="2g"
+        --cpus="2"
+        -v "$(pwd):/workspace" -w /workspace
+        -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
+    )
+else
+    # Normal mode: interactive, ephemeral container
+    docker_cmd=(
+        docker run --rm --name "$CONTAINER_NAME" -it
+        --memory="2g"
+        --cpus="2"
+        -v "$(pwd):/workspace" -w /workspace
+        -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
+    )
+fi
 
 # Mount openeddir/planning as read-only if it exists
 if [[ -d "$(pwd)/openeddir/planning" ]]; then
@@ -431,10 +494,20 @@ export GIT_USER_EMAIL
         sudo /usr/local/bin/init-firewall.sh
     fi
 
-    # Start Claude or bash depending on flag
-    if [[ \"$RUN_BASH\" == \"true\" ]]; then
+    # Start Claude, bash, or sleep (for exec mode) depending on flag
+    if [[ \"$EXEC_MODE\" == \"true\" ]]; then
+        # Exec mode: keep container running in background
+        exec sleep infinity
+    elif [[ \"$RUN_BASH\" == \"true\" ]]; then
         exec bash \"\$@\"
     else
         claude \"\$@\"
     fi
 " -- "${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}"
+
+# If we just created a container in exec mode, exec into it now
+if [[ "$EXEC_MODE" == "true" ]]; then
+    # Wait a moment for container to fully start
+    sleep 1
+    exec docker exec -i "$CONTAINER_NAME" "${EXEC_COMMAND[@]}"
+fi
