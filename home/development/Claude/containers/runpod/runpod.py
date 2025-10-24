@@ -13,8 +13,15 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# Set up logging - default to WARNING, only show DEBUG/INFO if --debug flag is set
+log_level = logging.WARNING
+if "--debug" in sys.argv:
+    log_level = logging.DEBUG
+    # Remove --debug from sys.argv so it doesn't interfere with command parsing
+    sys.argv.remove("--debug")
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format="[%(levelname)s] %(asctime)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -152,16 +159,67 @@ def has_ssh_agent() -> bool:
 
 def validate_ssh_key_path(ssh_key_path: str) -> Optional[Path]:
     """Validate SSH key is in expected locations only. Returns None if using SSH agent."""
-    # If SSH agent is available, prefer it over key files
-    if has_ssh_agent():
-        return None
+    # First resolve the configured key path
+    ssh_key = Path(ssh_key_path).expanduser().resolve()
 
     # Check if running in container and key is available
     container_key = Path("/home/node/.ssh/runpod_key")
     if container_key.is_file():
+        logging.debug(f"Using container SSH key: {container_key}")
         return container_key
 
-    ssh_key = Path(ssh_key_path).expanduser().resolve()
+    # If SSH agent is available, check if it has the specific key loaded
+    if has_ssh_agent():
+        agent_sock = os.environ.get("SSH_AUTH_SOCK")
+        logging.debug(f"SSH agent detected at: {agent_sock}")
+
+        # Get fingerprint of the configured key
+        try:
+            key_fingerprint_result = subprocess.run(
+                ["ssh-keygen", "-lf", str(ssh_key)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            # Output format: "2048 SHA256:xxx... path (RSA)"
+            configured_key_fingerprint = key_fingerprint_result.stdout.split()[1]
+            logging.debug(f"Configured key fingerprint: {configured_key_fingerprint}")
+        except (subprocess.CalledProcessError, FileNotFoundError, IndexError):
+            logging.warning(f"Could not get fingerprint of configured key: {ssh_key}")
+            logging.debug("Falling back to key file authentication")
+            # Fall through to use key file
+        else:
+            # Check if this key is loaded in the agent
+            try:
+                result = subprocess.run(
+                    ["ssh-add", "-l"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    logging.debug("Keys loaded in SSH agent:")
+                    for line in result.stdout.strip().split('\n'):
+                        logging.debug(f"  {line}")
+                        # Check if configured key's fingerprint is in this line
+                        if configured_key_fingerprint in line:
+                            logging.debug(f"✓ Configured key IS loaded in agent")
+                            logging.debug("Will use SSH agent for authentication")
+                            return None
+
+                    logging.warning(f"Configured key NOT found in SSH agent")
+                    logging.debug("Falling back to key file authentication")
+                elif result.returncode == 1:
+                    logging.warning("SSH agent is running but has NO keys loaded")
+                    logging.debug("Falling back to key file authentication")
+                else:
+                    logging.warning("Could not list SSH agent keys (ssh-add -l failed)")
+                    logging.debug("Falling back to key file authentication")
+            except FileNotFoundError:
+                logging.warning("ssh-add command not found, cannot check agent keys")
+                logging.debug("Falling back to key file authentication")
+
+    logging.debug(f"Using SSH key file: {ssh_key}")
 
     # Only allow keys in standard SSH directories
     allowed_dirs = [
@@ -383,10 +441,49 @@ def run_ssh_command(
         cmd.append(wrapped_command)
 
     try:
-        subprocess.run(cmd, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"❌ SSH command failed with exit code {e.returncode}")
-        sys.exit(1)
+        # For interactive sessions (no command), don't capture output
+        # Let stdin/stdout/stderr connect directly to terminal
+        if not command.strip():
+            result = subprocess.run(cmd, check=False)
+            if result.returncode != 0:
+                print(f"❌ SSH session exited with code {result.returncode}")
+                sys.exit(1)
+        else:
+            # For commands, capture output so we can parse it
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True)
+
+            # Check for host key verification failure
+            if result.returncode != 0:
+                stderr_lower = result.stderr.lower()
+                if "host key verification failed" in stderr_lower or "remote host identification has changed" in stderr_lower or "offending" in stderr_lower:
+                    print("❌ SSH host key verification failed")
+                    print()
+                    print("🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine.")
+                    print("   The cached host key doesn't match the new machine.")
+                    print()
+                    print("📝 SOLUTION: Remove the old host key entry:")
+                    print(f"   ssh-keygen -R \"[{config['host']}]:{config['port']}\"")
+                    print()
+                    print("   Then try your runpod command again.")
+                    print()
+                    print("Full error:")
+                    print(result.stderr)
+                    sys.exit(1)
+
+                # Print output for other errors
+                if result.stdout:
+                    print(result.stdout)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr)
+                print(f"❌ SSH command failed with exit code {result.returncode}")
+                sys.exit(1)
+
+            # Command succeeded, print output
+            if result.stdout:
+                print(result.stdout, end='')
+            if result.stderr:
+                print(result.stderr, end='', file=sys.stderr)
+
     except FileNotFoundError:
         print("❌ ssh command not found")
         sys.exit(1)
@@ -467,6 +564,22 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
         print(result.stdout)
         if result.stderr:
             print(result.stderr, file=sys.stderr)
+
+        # Check for host key verification failure
+        if result.returncode != 0:
+            stderr_lower = result.stderr.lower()
+            if "host key verification failed" in stderr_lower or "remote host identification has changed" in stderr_lower or "offending" in stderr_lower:
+                print()
+                print("❌ SSH host key verification failed")
+                print()
+                print("🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine.")
+                print("   The cached host key doesn't match the new machine.")
+                print()
+                print("📝 SOLUTION: Remove the old host key entry:")
+                print(f"   ssh-keygen -R \"[{config['host']}]:{config['port']}\"")
+                print()
+                print("   Then try your runpod command again.")
+                sys.exit(1)
 
         # Handle rsync exit codes
         # 0 = success
@@ -550,6 +663,22 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
         print(result.stdout)
         if result.stderr:
             print(result.stderr, file=sys.stderr)
+
+        # Check for host key verification failure
+        if result.returncode != 0:
+            stderr_lower = result.stderr.lower()
+            if "host key verification failed" in stderr_lower or "remote host identification has changed" in stderr_lower or "offending" in stderr_lower:
+                print()
+                print("❌ SSH host key verification failed")
+                print()
+                print("🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine.")
+                print("   The cached host key doesn't match the new machine.")
+                print()
+                print("📝 SOLUTION: Remove the old host key entry:")
+                print(f"   ssh-keygen -R \"[{config['host']}]:{config['port']}\"")
+                print()
+                print("   Then try your runpod command again.")
+                sys.exit(1)
 
         # Handle rsync exit codes
         # 0 = success
@@ -639,7 +768,7 @@ def ensure_gitignore(pattern: str) -> None:
             f.write("\n")
         f.write(f"{pattern}\n")
 
-    logging.info(f"Added {pattern} to .gitignore")
+    logging.debug(f"Added {pattern} to .gitignore")
 
 
 def mount_directory(config: Dict[str, str], mount_point: Optional[str] = None) -> None:
