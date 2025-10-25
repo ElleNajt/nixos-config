@@ -303,6 +303,8 @@ if [[ "$EXEC_MODE" == "true" ]]; then
         --cpus="2"
         -v "$(pwd):/workspace" -w /workspace
         -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
+        -e "GIT_USER_NAME=$GIT_USER_NAME"
+        -e "GIT_USER_EMAIL=$GIT_USER_EMAIL"
     )
 else
     # Normal mode: interactive, ephemeral container
@@ -312,6 +314,8 @@ else
         --cpus="2"
         -v "$(pwd):/workspace" -w /workspace
         -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
+        -e "GIT_USER_NAME=$GIT_USER_NAME"
+        -e "GIT_USER_EMAIL=$GIT_USER_EMAIL"
     )
 fi
 
