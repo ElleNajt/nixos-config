@@ -293,6 +293,7 @@ fi
 # Extract git config from host
 GIT_USER_NAME=$(git config --global --get user.name 2>/dev/null || echo "")
 GIT_USER_EMAIL=$(git config --global --get user.email 2>/dev/null || echo "")
+GIT_EXCLUDESFILE=$(git config --global --get core.excludesfile 2>/dev/null || echo "")
 
 # Build docker command
 if [[ "$EXEC_MODE" == "true" ]]; then
@@ -357,6 +358,15 @@ fi
 # Mount dummy credentials separately
 [[ -n "$TEMP_CREDS" ]] && docker_cmd+=(-v "$TEMP_CREDS:/tmp/credentials.json:ro")
 [[ "$MOUNT_CLAUDE_MD" == true && -f "$HOME/.claude/CLAUDE.md" ]] && docker_cmd+=(-v "$HOME/.claude/CLAUDE.md:/tmp/host-claude-md:ro")
+
+# Mount global gitignore if it exists
+if [[ -n "$GIT_EXCLUDESFILE" ]]; then
+    # Expand ~ to home directory
+    GIT_EXCLUDESFILE_EXPANDED="${GIT_EXCLUDESFILE/#\~/$HOME}"
+    if [[ -f "$GIT_EXCLUDESFILE_EXPANDED" ]]; then
+        docker_cmd+=(-v "$GIT_EXCLUDESFILE_EXPANDED:/tmp/host-gitignore:ro")
+    fi
+fi
 
 # Set up SSH agent container if RunPod config exists
 SSH_AGENT_CONTAINER=""
@@ -490,6 +500,12 @@ export GIT_USER_EMAIL
     fi
     if [[ -n \"\$GIT_USER_EMAIL\" ]]; then
         git config --global user.email \"\$GIT_USER_EMAIL\"
+    fi
+
+    # Copy and configure global gitignore if provided
+    if [[ -f /tmp/host-gitignore ]]; then
+        cp /tmp/host-gitignore /home/node/.gitignore_global
+        git config --global core.excludesfile /home/node/.gitignore_global
     fi
 
     # Initialize firewall if enabled
