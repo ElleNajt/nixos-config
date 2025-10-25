@@ -294,6 +294,7 @@ fi
 GIT_USER_NAME=$(git config --global --get user.name 2>/dev/null || echo "")
 GIT_USER_EMAIL=$(git config --global --get user.email 2>/dev/null || echo "")
 GIT_EXCLUDESFILE=$(git config --global --get core.excludesfile 2>/dev/null || echo "")
+GIT_MERGE_CONFLICTSTYLE=$(git config --global --get merge.conflictstyle 2>/dev/null || echo "")
 
 # Build docker command
 if [[ "$EXEC_MODE" == "true" ]]; then
@@ -306,6 +307,7 @@ if [[ "$EXEC_MODE" == "true" ]]; then
         -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
         -e "GIT_USER_NAME=$GIT_USER_NAME"
         -e "GIT_USER_EMAIL=$GIT_USER_EMAIL"
+        -e "GIT_MERGE_CONFLICTSTYLE=$GIT_MERGE_CONFLICTSTYLE"
     )
 else
     # Normal mode: interactive, ephemeral container
@@ -317,6 +319,7 @@ else
         -e "ANTHROPIC_BASE_URL=http://host.docker.internal:$ACTUAL_PORT"
         -e "GIT_USER_NAME=$GIT_USER_NAME"
         -e "GIT_USER_EMAIL=$GIT_USER_EMAIL"
+        -e "GIT_MERGE_CONFLICTSTYLE=$GIT_MERGE_CONFLICTSTYLE"
     )
 fi
 
@@ -506,6 +509,11 @@ export GIT_USER_EMAIL
     if [[ -f /tmp/host-gitignore ]]; then
         cp /tmp/host-gitignore /home/node/.gitignore_global
         git config --global core.excludesfile /home/node/.gitignore_global
+    fi
+
+    # Configure merge conflict style if set on host
+    if [[ -n \"\$GIT_MERGE_CONFLICTSTYLE\" ]]; then
+        git config --global merge.conflictstyle \"\$GIT_MERGE_CONFLICTSTYLE\"
     fi
 
     # Initialize firewall if enabled
