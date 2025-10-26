@@ -149,6 +149,7 @@
     ".gitignore_global".text = ''
       .env
       .runpod_config.json
+      .agents
     '';
 
     ".gitconfig".text = ''
