@@ -199,7 +199,7 @@ def validate_ssh_key_path(ssh_key_path: str) -> Optional[Path]:
                 )
                 if result.returncode == 0:
                     logging.debug("Keys loaded in SSH agent:")
-                    for line in result.stdout.strip().split('\n'):
+                    for line in result.stdout.strip().split("\n"):
                         logging.debug(f"  {line}")
                         # Check if configured key's fingerprint is in this line
                         if configured_key_fingerprint in line:
@@ -353,14 +353,19 @@ def ensure_remote_dir_exists(config: Dict[str, str]) -> None:
     try:
         subprocess.run(cmd, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
-        print(f"⚠️  Warning: Could not create remote directory {config['remote_dir']}: {e}")
+        print(
+            f"⚠️  Warning: Could not create remote directory {config['remote_dir']}: {e}"
+        )
     except FileNotFoundError:
         print("❌ ssh command not found")
         sys.exit(1)
 
 
 def run_ssh_command(
-    config: Dict[str, str], command: str, force_tty: bool = False, cwd: Optional[str] = None
+    config: Dict[str, str],
+    command: str,
+    force_tty: bool = False,
+    cwd: Optional[str] = None,
 ) -> None:
     """Run command on remote server via SSH.
 
@@ -396,42 +401,68 @@ def run_ssh_command(
         warned = False
 
         if command_parts and command_parts[0] in interactive_editors:
-            print(f"⚠️  Warning: You're running '{command_parts[0]}' on the remote server")
-            print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+            print(
+                f"⚠️  Warning: You're running '{command_parts[0]}' on the remote server"
+            )
+            print(
+                f"   Best practice: Edit files locally, then use 'runpod push' to sync"
+            )
             print()
             warned = True
 
         # Check for file write patterns (redirection, heredoc, tee)
-        if not warned and any(pattern in command for pattern in ['>>', '>', '<<', '| tee']):
+        if not warned and any(
+            pattern in command for pattern in [">>", ">", "<<", "| tee"]
+        ):
             # Likely writing/creating files
-            if any(cmd in command for cmd in ['cat', 'echo', 'printf', 'tee']):
+            if any(cmd in command for cmd in ["cat", "echo", "printf", "tee"]):
                 print(f"⚠️  Warning: Detected file write pattern in command")
-                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
-                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print(
+                    f"   Command appears to create/modify files remotely: {command[:60]}..."
+                )
+                print(
+                    f"   Best practice: Edit files locally, then use 'runpod push' to sync"
+                )
                 print()
                 warned = True
 
         # Check for language one-liners that write files
         if not warned:
             # Python one-liners: python -c "open(...,'w')"
-            if ('python -c' in command or 'python3 -c' in command) and 'open(' in command and ("'w'" in command or '"w"' in command):
+            if (
+                ("python -c" in command or "python3 -c" in command)
+                and "open(" in command
+                and ("'w'" in command or '"w"' in command)
+            ):
                 print(f"⚠️  Warning: Detected Python one-liner writing files")
-                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
-                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print(
+                    f"   Command appears to create/modify files remotely: {command[:60]}..."
+                )
+                print(
+                    f"   Best practice: Edit files locally, then use 'runpod push' to sync"
+                )
                 print()
                 warned = True
             # Perl one-liners: perl -e with file operations
-            elif 'perl -e' in command and ('open(' in command or 'open (' in command):
+            elif "perl -e" in command and ("open(" in command or "open (" in command):
                 print(f"⚠️  Warning: Detected Perl one-liner writing files")
-                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
-                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print(
+                    f"   Command appears to create/modify files remotely: {command[:60]}..."
+                )
+                print(
+                    f"   Best practice: Edit files locally, then use 'runpod push' to sync"
+                )
                 print()
                 warned = True
             # Ruby one-liners: ruby -e with File.write
-            elif 'ruby -e' in command and 'File.write' in command:
+            elif "ruby -e" in command and "File.write" in command:
                 print(f"⚠️  Warning: Detected Ruby one-liner writing files")
-                print(f"   Command appears to create/modify files remotely: {command[:60]}...")
-                print(f"   Best practice: Edit files locally, then use 'runpod push' to sync")
+                print(
+                    f"   Command appears to create/modify files remotely: {command[:60]}..."
+                )
+                print(
+                    f"   Best practice: Edit files locally, then use 'runpod push' to sync"
+                )
                 print()
                 warned = True
 
@@ -455,14 +486,20 @@ def run_ssh_command(
             # Check for host key verification failure
             if result.returncode != 0:
                 stderr_lower = result.stderr.lower()
-                if "host key verification failed" in stderr_lower or "remote host identification has changed" in stderr_lower or "offending" in stderr_lower:
+                if (
+                    "host key verification failed" in stderr_lower
+                    or "remote host identification has changed" in stderr_lower
+                    or "offending" in stderr_lower
+                ):
                     print("❌ SSH host key verification failed")
                     print()
-                    print("🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine.")
+                    print(
+                        "🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine."
+                    )
                     print("   The cached host key doesn't match the new machine.")
                     print()
                     print("📝 SOLUTION: Remove the old host key entry:")
-                    print(f"   ssh-keygen -R \"[{config['host']}]:{config['port']}\"")
+                    print(f'   ssh-keygen -R "[{config["host"]}]:{config["port"]}"')
                     print()
                     print("   Then try your runpod command again.")
                     print()
@@ -480,9 +517,9 @@ def run_ssh_command(
 
             # Command succeeded, print output
             if result.stdout:
-                print(result.stdout, end='')
+                print(result.stdout, end="")
             if result.stderr:
-                print(result.stderr, end='', file=sys.stderr)
+                print(result.stderr, end="", file=sys.stderr)
 
     except FileNotFoundError:
         print("❌ ssh command not found")
@@ -501,24 +538,26 @@ def parse_rsync_stats(output: str) -> Tuple[int, int, int]:
     created = 0
     transferred = 0
 
-    for line in output.split('\n'):
-        if 'Number of created files:' in line:
-            match = re.search(r'Number of created files:\s*(\d+)', line)
+    for line in output.split("\n"):
+        if "Number of created files:" in line:
+            match = re.search(r"Number of created files:\s*(\d+)", line)
             if match:
                 created = int(match.group(1))
-        elif 'Number of regular files transferred:' in line:
-            match = re.search(r'Number of regular files transferred:\s*(\d+)', line)
+        elif "Number of regular files transferred:" in line:
+            match = re.search(r"Number of regular files transferred:\s*(\d+)", line)
             if match:
                 transferred = int(match.group(1))
-        elif 'Number of files:' in line and 'reg:' in line:
-            match = re.search(r'Number of files:\s*(\d+)', line)
+        elif "Number of files:" in line and "reg:" in line:
+            match = re.search(r"Number of files:\s*(\d+)", line)
             if match:
                 total_files = int(match.group(1))
 
     return (created, transferred, total_files)
 
 
-def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_run: bool = False) -> None:
+def push_directory(
+    config: Dict[str, str], source_dir: str, dest_dir: str, dry_run: bool = False
+) -> None:
     """Push directory to remote server via rsync."""
     ensure_host_in_known_hosts(config)
     source_path = validate_source_path(source_dir)
@@ -540,6 +579,9 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
     cmd = [
         "rsync",
         "-avz",
+        "--no-perms",
+        "--no-owner",
+        "--no-group",
         "--stats",
         "--progress",
     ]
@@ -550,12 +592,14 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
     # Add exclude patterns from .runpod_sync_ignore
     cmd.extend(get_rsync_excludes())
 
-    cmd.extend([
-        "-e",
-        ssh_cmd,
-        f"{shlex.quote(str(source_path))}/",
-        f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
-    ])
+    cmd.extend(
+        [
+            "-e",
+            ssh_cmd,
+            f"{shlex.quote(str(source_path))}/",
+            f"{config['user']}@{config['host']}:{shlex.quote(dest_dir)}",
+        ]
+    )
 
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True)
@@ -568,15 +612,21 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
         # Check for host key verification failure
         if result.returncode != 0:
             stderr_lower = result.stderr.lower()
-            if "host key verification failed" in stderr_lower or "remote host identification has changed" in stderr_lower or "offending" in stderr_lower:
+            if (
+                "host key verification failed" in stderr_lower
+                or "remote host identification has changed" in stderr_lower
+                or "offending" in stderr_lower
+            ):
                 print()
                 print("❌ SSH host key verification failed")
                 print()
-                print("🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine.")
+                print(
+                    "🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine."
+                )
                 print("   The cached host key doesn't match the new machine.")
                 print()
                 print("📝 SOLUTION: Remove the old host key entry:")
-                print(f"   ssh-keygen -R \"[{config['host']}]:{config['port']}\"")
+                print(f'   ssh-keygen -R "[{config["host"]}]:{config["port"]}"')
                 print()
                 print("   Then try your runpod command again.")
                 sys.exit(1)
@@ -606,7 +656,9 @@ def push_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
         sys.exit(1)
 
 
-def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_run: bool = False) -> None:
+def pull_directory(
+    config: Dict[str, str], source_dir: str, dest_dir: str, dry_run: bool = False
+) -> None:
     """Pull directory from remote server via rsync."""
     dest_path = validate_source_path(dest_dir)
     ssh_key = validate_ssh_key_path(config["ssh_key"])
@@ -639,6 +691,9 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
     cmd = [
         "rsync",
         "-avz",
+        "--no-perms",
+        "--no-owner",
+        "--no-group",
         "--stats",
         "--progress",
     ]
@@ -649,12 +704,14 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
     # Add exclude patterns from .runpod_sync_ignore
     cmd.extend(get_rsync_excludes())
 
-    cmd.extend([
-        "-e",
-        ssh_cmd,
-        f"{config['user']}@{config['host']}:{shlex.quote(source_dir)}",
-        f"{shlex.quote(str(dest_path))}/",
-    ])
+    cmd.extend(
+        [
+            "-e",
+            ssh_cmd,
+            f"{config['user']}@{config['host']}:{shlex.quote(source_dir)}",
+            f"{shlex.quote(str(dest_path))}/",
+        ]
+    )
 
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True)
@@ -667,15 +724,21 @@ def pull_directory(config: Dict[str, str], source_dir: str, dest_dir: str, dry_r
         # Check for host key verification failure
         if result.returncode != 0:
             stderr_lower = result.stderr.lower()
-            if "host key verification failed" in stderr_lower or "remote host identification has changed" in stderr_lower or "offending" in stderr_lower:
+            if (
+                "host key verification failed" in stderr_lower
+                or "remote host identification has changed" in stderr_lower
+                or "offending" in stderr_lower
+            ):
                 print()
                 print("❌ SSH host key verification failed")
                 print()
-                print("🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine.")
+                print(
+                    "🔍 COMMON ISSUE: RunPod reused the same IP:port for a different machine."
+                )
                 print("   The cached host key doesn't match the new machine.")
                 print()
                 print("📝 SOLUTION: Remove the old host key entry:")
-                print(f"   ssh-keygen -R \"[{config['host']}]:{config['port']}\"")
+                print(f'   ssh-keygen -R "[{config["host"]}]:{config["port"]}"')
                 print()
                 print("   Then try your runpod command again.")
                 sys.exit(1)
@@ -858,15 +921,23 @@ def show_help() -> None:
     print("Usage:")
     print("  Sync Commands:")
     print("    runpod status                  - Show what files are out of sync")
-    print("    runpod push [src] [dest]       - Push files to RunPod (default: git repo → remote_dir)")
-    print("    runpod pull [src] [dest]       - Pull files from RunPod (default: remote_dir → git repo)")
+    print(
+        "    runpod push [src] [dest]       - Push files to RunPod (default: git repo → remote_dir)"
+    )
+    print(
+        "    runpod pull [src] [dest]       - Pull files from RunPod (default: remote_dir → git repo)"
+    )
     print()
     print("  Execution Commands:")
-    print("    runpod run \"command\"            - Run command on RunPod (from remote_dir)")
+    print(
+        '    runpod run "command"            - Run command on RunPod (from remote_dir)'
+    )
     print("    runpod python                  - Interactive Python REPL on RunPod")
     print()
     print("  Other Commands:")
-    print("    runpod mount [mount_point]     - Mount remote directory via SSHFS (default: ./.runpod-mount)")
+    print(
+        "    runpod mount [mount_point]     - Mount remote directory via SSHFS (default: ./.runpod-mount)"
+    )
     print("    runpod unmount [mount_point]   - Unmount SSHFS mount")
     print("    runpod config                  - Show current configuration")
     print("    runpod                         - Open interactive SSH session")
