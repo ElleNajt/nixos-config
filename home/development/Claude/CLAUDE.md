@@ -16,3 +16,5 @@
 @runpod.md
 
 @core-principles.md
+
+@agent-compile.md
