@@ -42,29 +42,29 @@ ENABLE_FIREWALL=false
 SAVE_CONVERSATIONS=false
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --mount-claude-md)
-            MOUNT_CLAUDE_MD=true
-            shift
-            ;;
-        --bash)
-            RUN_BASH=true
-            shift
-            ;;
-        --verbose)
-            VERBOSE=true
-            shift
-            ;;
-        --firewall)
-            ENABLE_FIREWALL=true
-            shift
-            ;;
-        --continue | -c | --resume | -r)
-            SAVE_CONVERSATIONS=true
-            CLAUDE_ARGS+=("$1")
-            shift
-            ;;
-        --help)
-            cat << 'EOF'
+    --mount-claude-md)
+        MOUNT_CLAUDE_MD=true
+        shift
+        ;;
+    --bash)
+        RUN_BASH=true
+        shift
+        ;;
+    --verbose)
+        VERBOSE=true
+        shift
+        ;;
+    --firewall)
+        ENABLE_FIREWALL=true
+        shift
+        ;;
+    --continue | -c | --resume | -r)
+        SAVE_CONVERSATIONS=true
+        CLAUDE_ARGS+=("$1")
+        shift
+        ;;
+    --help)
+        cat <<'EOF'
 Run Claude Code in a Docker container with credential isolation.
 
 Real API credentials stay on the host and are injected via proxy.
@@ -107,30 +107,30 @@ EXAMPLES:
     cd ~/my-project && claudebox --continue
     cd ~/my-project && claudebox exec claude-code-acp
 EOF
-            exit 0
-            ;;
-        *)
-            # Pass unknown arguments to Claude
-            CLAUDE_ARGS+=("$1")
-            shift
-            ;;
+        exit 0
+        ;;
+    *)
+        # Pass unknown arguments to Claude
+        CLAUDE_ARGS+=("$1")
+        shift
+        ;;
     esac
 done
 
-docker info > /dev/null 2>&1 || {
+docker info >/dev/null 2>&1 || {
     echo "Docker not running"
     exit 1
 }
 
 # Build images if needed
-if ! docker image inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
+if ! docker image inspect "$DOCKER_IMAGE" >/dev/null 2>&1; then
     [[ "$VERBOSE" == "true" ]] && echo "🔨 Building devcontainer image..."
     docker build -t "$DOCKER_IMAGE" -f "$CONTAINER_DIR/Dockerfile" "$CONTAINER_DIR" || exit 1
 fi
 
 # Build SSH agent image if needed
 SSH_AGENT_IMAGE="claudebox-ssh-agent"
-if ! docker image inspect "$SSH_AGENT_IMAGE" > /dev/null 2>&1; then
+if ! docker image inspect "$SSH_AGENT_IMAGE" >/dev/null 2>&1; then
     [[ "$VERBOSE" == "true" ]] && echo "🔨 Building SSH agent image..."
     docker build -t "$SSH_AGENT_IMAGE" -f "$CONTAINER_DIR/proxies/ssh-agent/Dockerfile" "$CONTAINER_DIR/proxies/ssh-agent" || exit 1
 fi
@@ -146,7 +146,7 @@ if [[ "$EXEC_MODE" == "true" ]]; then
     # Container not running - check if it exists but is stopped
     if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
         # Container exists but stopped, start it
-        docker start "$CONTAINER_NAME" > /dev/null
+        docker start "$CONTAINER_NAME" >/dev/null
         exec docker exec -i "$CONTAINER_NAME" "${EXEC_COMMAND[@]}"
     fi
 
@@ -158,7 +158,7 @@ find_available_port() {
     local port=$1
     local max_port=65535
     for ((i = 0; i <= $((max_port - port)); i++)); do
-        if ! nc -z localhost $((port + i)) 2> /dev/null; then
+        if ! nc -z localhost $((port + i)) 2>/dev/null; then
             echo $((port + i))
             return 0
         fi
@@ -172,8 +172,8 @@ PROXY_PID=$(pgrep -f "claude-auth-proxy.py" || true)
 
 if [[ -n "$PROXY_PID" ]]; then
     # Proxy is already running, get its port using lsof
-    ACTUAL_PORT=$(lsof -P -n -p "$PROXY_PID" -a -i TCP -s TCP:LISTEN 2> /dev/null \
-        | grep -v "^COMMAND" | awk '{print $9}' | cut -d: -f2 | head -1)
+    ACTUAL_PORT=$(lsof -P -n -p "$PROXY_PID" -a -i TCP -s TCP:LISTEN 2>/dev/null |
+        grep -v "^COMMAND" | awk '{print $9}' | cut -d: -f2 | head -1)
 
     if [[ -n "$ACTUAL_PORT" ]]; then
         echo "✓ Using existing proxy on port $ACTUAL_PORT"
@@ -199,23 +199,23 @@ else
         PROXY_LOG="/dev/null"
     fi
 
-    if command -v claude-auth-proxy.py &> /dev/null; then
-        claude-auth-proxy.py "$PROXY_ARGS" > "$PROXY_LOG" 2>&1 &
+    if command -v claude-auth-proxy.py &>/dev/null; then
+        claude-auth-proxy.py $PROXY_ARGS >"$PROXY_LOG" 2>&1 &
     else
-        python3 "$PROXY_SCRIPT" "$PROXY_ARGS" > "$PROXY_LOG" 2>&1 &
+        python3 "$PROXY_SCRIPT" $PROXY_ARGS >"$PROXY_LOG" 2>&1 &
     fi
     PROXY_PID=$!
 
     # Health check polling - wait for proxy to be ready
     ATTEMPT=0
     while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
-        if ! ps -p "$PROXY_PID" > /dev/null 2>&1; then
+        if ! ps -p "$PROXY_PID" >/dev/null 2>&1; then
             echo "❌ Proxy process died unexpectedly"
             exit 1
         fi
 
         # Try to connect to the proxy port
-        if nc -z localhost "$ACTUAL_PORT" 2> /dev/null; then
+        if nc -z localhost "$ACTUAL_PORT" 2>/dev/null; then
             echo "✅ Proxy ready"
             break
         fi
@@ -223,7 +223,7 @@ else
         ATTEMPT=$((ATTEMPT + 1))
         if [[ $ATTEMPT -eq $MAX_ATTEMPTS ]]; then
             echo "❌ Proxy failed to start after ${MAX_ATTEMPTS} attempts"
-            kill $PROXY_PID 2> /dev/null || true
+            kill $PROXY_PID 2>/dev/null || true
             exit 1
         fi
 
@@ -236,23 +236,23 @@ cleanup() {
     local exit_code=$?
 
     # Save conversations from container before removing it (only if --continue/-c/--resume/-r was used)
-    if [[ "$SAVE_CONVERSATIONS" == "true" ]] && docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$" 2> /dev/null; then
+    if [[ "$SAVE_CONVERSATIONS" == "true" ]] && docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$" 2>/dev/null; then
         echo ""
         echo "💾 Saving conversations from container..."
 
         # Check if container has any conversations
-        if docker exec "$CONTAINER_NAME" test -d /home/node/.claude/projects 2> /dev/null; then
+        if docker exec "$CONTAINER_NAME" test -d /home/node/.claude/projects 2>/dev/null; then
             # Create destination directory with correct host-based project name
             mkdir -p "$HOME/.claude/projects/$PROJECT_NAME"
 
             # Copy conversation files from container to host using correct project name
             # Extracts files from container's project dirs (e.g., "workspace") into host dir
-            for project_dir in $(docker exec "$CONTAINER_NAME" find /home/node/.claude/projects -mindepth 1 -maxdepth 1 -type d 2> /dev/null || true); do
+            for project_dir in $(docker exec "$CONTAINER_NAME" find /home/node/.claude/projects -mindepth 1 -maxdepth 1 -type d 2>/dev/null || true); do
                 container_name=$(basename "$project_dir")
 
                 # Copy the contents (files) from container project dir to host project dir
                 echo "   📥 Saving conversations from container:$container_name → host:$PROJECT_NAME"
-                docker cp "$CONTAINER_NAME:$project_dir/." "$HOME/.claude/projects/$PROJECT_NAME/" 2> /dev/null || true
+                docker cp "$CONTAINER_NAME:$project_dir/." "$HOME/.claude/projects/$PROJECT_NAME/" 2>/dev/null || true
             done
             echo "   ✅ Conversations saved to $HOME/.claude/projects/$PROJECT_NAME"
         fi
@@ -261,11 +261,11 @@ cleanup() {
     # Remove container (but NOT the proxy - it's shared!)
     # Skip removal if in exec mode (persistent containers)
     if [[ "$EXEC_MODE" != "true" ]]; then
-        docker rm -f "$CONTAINER_NAME" 2> /dev/null || true
+        docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
     fi
 
     # Clean up temporary files
-    rm -f "$TEMP_CREDS" 2> /dev/null || true
+    rm -f "$TEMP_CREDS" 2>/dev/null || true
 
     # Note: SSH agent container left running for reuse
     # To stop it manually: docker rm -f claudebox-ssh-agent
@@ -281,10 +281,10 @@ TEMP_CREDS=$(mktemp) || {
 }
 
 # Try to get credentials and replace with dummy tokens in one operation
-if ! get-claude-credentials.sh 2> /dev/null | jq '
+if ! get-claude-credentials.sh 2>/dev/null | jq '
         .claudeAiOauth.accessToken = "sk-ant-oat01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA" |
         .claudeAiOauth.refreshToken = "sk-ant-ort01-dummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDummyDQ-DummyAA"
-    ' > "$TEMP_CREDS" 2> /dev/null; then
+    ' >"$TEMP_CREDS" 2>/dev/null; then
     # Failed to get credentials or process them, clean up
     rm -f "$TEMP_CREDS"
     TEMP_CREDS=""
@@ -380,7 +380,7 @@ if [[ -f "$(pwd)/.runpod_config.json" ]]; then
     docker_cmd+=(-v "$(pwd)/.runpod_config.json:/workspace/.runpod_config.json:ro")
 
     # Extract SSH key path from config
-    RUNPOD_KEY=$(jq -r '.ssh_key // empty' "$(pwd)/.runpod_config.json" 2> /dev/null)
+    RUNPOD_KEY=$(jq -r '.ssh_key // empty' "$(pwd)/.runpod_config.json" 2>/dev/null)
 
     if [[ -n "$RUNPOD_KEY" ]]; then
         # Expand ~ to home directory
@@ -396,14 +396,14 @@ if [[ -f "$(pwd)/.runpod_config.json" ]]; then
                     echo "   ✓ SSH agent container already running"
                 else
                     echo "   Starting existing SSH agent container..."
-                    docker start claudebox-ssh-agent > /dev/null
+                    docker start claudebox-ssh-agent >/dev/null
                 fi
             else
                 # Container doesn't exist, create it
                 echo "   Creating SSH agent container..."
                 docker run -d --name=claudebox-ssh-agent \
                     -v "$SSH_AGENT_VOLUME:/.ssh-agent" \
-                    "$SSH_AGENT_IMAGE" > /dev/null
+                    "$SSH_AGENT_IMAGE" >/dev/null
                 sleep 1 # Wait for agent and socat to start
             fi
             SSH_AGENT_CONTAINER="claudebox-ssh-agent"
@@ -427,6 +427,13 @@ if [[ -f "$(pwd)/.runpod_config.json" ]]; then
     fi
 else
     echo "📝 No .runpod_config.json found in $(pwd)"
+fi
+
+# Mount agent-compile code directory (read-only)
+AGENT_COMPILE_DIR="$HOME/code/agent-compile"
+if [[ -d "$AGENT_COMPILE_DIR" ]]; then
+    echo "📦 Mounting agent-compile from $AGENT_COMPILE_DIR"
+    docker_cmd+=(-v "$AGENT_COMPILE_DIR:/code/agent-compile:ro")
 fi
 
 # Mount security-sensitive files as read-only to prevent tampering

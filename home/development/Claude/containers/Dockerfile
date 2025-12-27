@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   curl \
   sshfs \
+  golang \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Ensure default node user has access to /usr/local/share
@@ -57,8 +58,8 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
 ENV DEVCONTAINER=true
 
 # Create workspace and config directories and set permissions
-RUN mkdir -p /workspace /home/node/.claude && \
-  chown -R node:node /workspace /home/node/.claude
+RUN mkdir -p /workspace /home/node/.claude /tmp/ClaudeWorkingDir && \
+  chown -R node:node /workspace /home/node/.claude /tmp/ClaudeWorkingDir
 
 WORKDIR /workspace
 
@@ -94,6 +95,9 @@ RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 # Install ACP
 RUN npm install -g @zed-industries/claude-code-acp
 
+# Install beads
+RUN npm install -g @beads/bd
+
 COPY firewall/init-firewall.sh /usr/local/bin/
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
@@ -117,7 +121,13 @@ RUN chmod +x /usr/local/bin/check-fallbacks.py /usr/local/bin/check-fallbacks.sh
 # Copy runpod script and install Python dependencies
 COPY runpod/runpod.py /usr/local/bin/runpod
 RUN chmod +x /usr/local/bin/runpod && \
-  pip3 install --no-cache-dir boto3 requests python-dotenv matplotlib pandas numpy scipy scikit-learn pillow seaborn tensorboard --break-system-packages
+  pip3 install --no-cache-dir boto3 requests python-dotenv matplotlib pandas numpy scipy scikit-learn pillow seaborn tensorboard --break-system-packages && \
+  ln -s /usr/bin/python3 /usr/bin/python
+
+# Copy agent-compile wrapper scripts
+COPY agent-compile/agent-compile.sh /usr/local/bin/agent-compile
+COPY agent-compile/agent-decompile.sh /usr/local/bin/agent-decompile
+RUN chmod +x /usr/local/bin/agent-compile /usr/local/bin/agent-decompile
 
 USER node
 
